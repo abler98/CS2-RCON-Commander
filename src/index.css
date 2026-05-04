@@ -1,0 +1,151 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-cs-yellow: var(--cs-yellow);
+  --color-cs-bg-main: var(--cs-bg-main);
+  --color-cs-bg-panel: var(--cs-bg-panel);
+  --color-cs-bg-console: var(--cs-bg-console);
+  --color-cs-border: var(--cs-border);
+  --color-cs-red: var(--cs-red);
+  --color-cs-green: var(--cs-green);
+  --color-cs-blue: var(--cs-blue);
+  --color-cs-muted: var(--cs-muted);
+  --color-cs-text: var(--cs-text);
+}
+
+:root {
+  --cs-yellow: #fbbf24;
+  --cs-bg-main: #0c0c0e;
+  --cs-bg-panel: #141417;
+  --cs-bg-console: #09090b;
+  --cs-border: #27272a;
+  --cs-red: #f43f5e;
+  --cs-green: #22c55e;
+  --cs-blue: #3b82f6;
+  --cs-muted: #71717a;
+  --cs-text: #e4e4e7;
+}
+
+.theme-green {
+  --cs-yellow: #4ade80 !important;
+  --cs-bg-main: #020617 !important;
+  --cs-bg-panel: #0f172a !important;
+  --cs-bg-console: #020617 !important;
+  --cs-border: #1e293b !important;
+  --cs-red: #ef4444 !important;
+  --cs-green: #22c55e !important;
+  --cs-blue: #60a5fa !important;
+  --cs-muted: #64748b !important;
+  --cs-text: #f0fdf4 !important;
+}
+
+.theme-dracula {
+  --cs-yellow: #f1fa8c !important;
+  --cs-bg-main: #282a36 !important;
+  --cs-bg-panel: #44475a !important;
+  --cs-bg-console: #191a21 !important;
+  --cs-border: #6272a4 !important;
+  --cs-red: #ff5555 !important;
+  --cs-green: #50fa7b !important;
+  --cs-blue: #8be9fd !important;
+  --cs-muted: #bd93f9 !important;
+  --cs-text: #f8f8f2 !important;
+}
+
+.theme-solarized {
+  --cs-yellow: #b58900 !important;
+  --cs-bg-main: #002b36 !important;
+  --cs-bg-panel: #073642 !important;
+  --cs-bg-console: #002b36 !important;
+  --cs-border: #586e75 !important;
+  --cs-red: #dc322f !important;
+  --cs-green: #859900 !important;
+  --cs-blue: #268bd2 !important;
+  --cs-muted: #839496 !important;
+  --cs-text: #eee8d5 !important;
+}
+
+.theme-nord {
+  --cs-yellow: #ebcb8b !important;
+  --cs-bg-main: #2e3440 !important;
+  --cs-bg-panel: #3b4252 !important;
+  --cs-bg-console: #2e3440 !important;
+  --cs-border: #4c566a !important;
+  --cs-red: #bf616a !important;
+  --cs-green: #a3be8c !important;
+  --cs-blue: #88c0d0 !important;
+  --cs-muted: #d8dee9 !important;
+  --cs-text: #eceff4 !important;
+}
+
+.theme-gruvbox {
+  --cs-yellow: #fabd2f !important;
+  --cs-bg-main: #282828 !important;
+  --cs-bg-panel: #3c3836 !important;
+  --cs-bg-console: #1d2021 !important;
+  --cs-border: #504945 !important;
+  --cs-red: #fb4934 !important;
+  --cs-green: #b8bb26 !important;
+  --cs-blue: #83a598 !important;
+  --cs-muted: #928374 !important;
+  --cs-text: #ebdbb2 !important;
+}
+
+.theme-cyberpunk {
+  --cs-yellow: #fcee0a !important;
+  --cs-bg-main: #000000 !important;
+  --cs-bg-panel: #1a1a1a !important;
+  --cs-bg-console: #000000 !important;
+  --cs-border: #00ff00 !important;
+  --cs-red: #ff003c !important;
+  --cs-green: #00ff00 !important;
+  --cs-blue: #00f0ff !important;
+  --cs-muted: #666666 !important;
+  --cs-text: #ffffff !important;
+}
+
+.theme-onedark {
+  --cs-yellow: #e5c07b !important;
+  --cs-bg-main: #282c34 !important;
+  --cs-bg-panel: #2c313a !important;
+  --cs-bg-console: #21252b !important;
+  --cs-border: #3e4451 !important;
+  --cs-red: #e06c75 !important;
+  --cs-green: #98c379 !important;
+  --cs-blue: #61afef !important;
+  --cs-muted: #abb2bf !important;
+  --cs-text: #dcdfe4 !important;
+}
+
+.theme-monokai {
+  --cs-yellow: #e6db74 !important;
+  --cs-bg-main: #272822 !important;
+  --cs-bg-panel: #3e3d32 !important;
+  --cs-bg-console: #272822 !important;
+  --cs-border: #49483e !important;
+  --cs-red: #f92672 !important;
+  --cs-green: #a6e22e !important;
+  --cs-blue: #66d9ef !important;
+  --cs-muted: #75715e !important;
+  --cs-text: #f8f8f2 !important;
+}
+
+@layer base {
+  body {
+    @apply bg-cs-bg-main text-cs-text font-sans selection:bg-cs-yellow/20;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-cs-border rounded-full hover:bg-cs-muted transition-colors;
+}

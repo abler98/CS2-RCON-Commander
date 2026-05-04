@@ -1,0 +1,6 @@
+{
+  "name": "CS2 RCON Commander",
+  "description": "A technical RCON management tool for Counter-Strike 2 dedicated servers. Features terminal-style console, quick actions, and server status monitoring.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
