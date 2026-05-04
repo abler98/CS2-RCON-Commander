@@ -668,8 +668,39 @@ export default function App() {
                       <Shield className="w-4 h-4 text-cs-red" />
                       <span className="text-[10px] font-bold tracking-widest">Steam Identity</span>
                     </div>
-                    <div className="font-mono text-sm break-all leading-relaxed">
-                      {serverInfo?.steamid || 'Public Identifier N/A'}
+                    <div className="space-y-4">
+                      {serverInfo?.steamid ? (() => {
+                        const match = serverInfo.steamid.match(/\[([G|A]):(\d+):(\d+)\]\s+\((\d+)\)/);
+                        if (match) {
+                          const [_, type, universe, accountId, steamId64] = match;
+                          return (
+                            <>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[9px] font-bold text-cs-muted uppercase tracking-wider">SteamID3 / GSLT</span>
+                                <div className="font-mono text-sm text-cs-yellow">{match[0].split(' ')[0]}</div>
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  <span className="text-[8px] px-1.5 py-0.5 bg-cs-red/10 border border-cs-red/20 text-cs-red font-bold rounded">
+                                    {type === 'G' ? 'Persistent Server' : 'Anonymous'}
+                                  </span>
+                                  <span className="text-[8px] px-1.5 py-0.5 bg-cs-blue/10 border border-cs-blue/20 text-cs-blue font-bold rounded">
+                                    Universe: {universe === '1' ? 'Public' : universe}
+                                  </span>
+                                  <span className="text-[8px] px-1.5 py-0.5 bg-white/5 border border-white/10 text-cs-muted font-mono rounded">
+                                    ID: {accountId}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-1 pt-2 border-t border-cs-border/50">
+                                <span className="text-[9px] font-bold text-cs-muted uppercase tracking-wider">SteamID64</span>
+                                <div className="font-mono text-sm text-white/90">{steamId64}</div>
+                              </div>
+                            </>
+                          );
+                        }
+                        return <div className="font-mono text-sm text-cs-yellow">{serverInfo.steamid}</div>;
+                      })() : (
+                        <div className="font-mono text-sm text-cs-muted">Public Identifier N/A</div>
+                      )}
                     </div>
                   </div>
                   {/* Technical Specs Cards */}
