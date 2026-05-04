@@ -665,8 +665,8 @@ export default function App() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <div className="bg-cs-bg-panel border border-cs-border rounded-lg p-6 shadow-sm">
                     <div className="flex items-center gap-3 mb-4 text-cs-muted">
-                      <Shield className="w-4 h-4 text-cs-muted" />
-                      <span className="text-[10px] font-bold tracking-widest uppercase">Steam Identity</span>
+                      <Shield className="w-4 h-4 text-cs-red" />
+                      <span className="text-[10px] font-bold tracking-widest">Steam Identity</span>
                     </div>
                     <div className="font-mono text-sm break-all leading-relaxed">
                       {serverInfo?.steamid || 'Public Identifier N/A'}
