@@ -180,6 +180,12 @@ export default function App() {
   }, [consoleHistory]);
 
   useEffect(() => {
+    if (!isExecuting && isConnected && activeTab === 'console') {
+      commandInputRef.current?.focus();
+    }
+  }, [isExecuting, isConnected, activeTab]);
+
+  useEffect(() => {
     localStorage.setItem('cs2_command_history', JSON.stringify(commandHistory));
   }, [commandHistory]);
 
@@ -409,8 +415,6 @@ export default function App() {
       addLog('error', 'Console error: ' + err.message);
     } finally {
       setIsExecuting(false);
-      // Focus back to input
-      setTimeout(() => commandInputRef.current?.focus(), 0);
     }
   };
 
@@ -1161,7 +1165,14 @@ export default function App() {
                 exit={{ opacity: 0, x: 10 }}
                 className="flex-1 flex flex-col overflow-hidden"
               >
-                <div className="flex-1 p-6 font-mono text-[13px] leading-relaxed overflow-y-auto custom-scrollbar flex flex-col text-cs-text">
+                <div 
+                  onClick={() => {
+                    if (window.getSelection()?.toString() === '') {
+                      commandInputRef.current?.focus();
+                    }
+                  }}
+                  className="flex-1 p-6 font-mono text-[13px] leading-relaxed overflow-y-auto custom-scrollbar flex flex-col text-cs-text cursor-text"
+                >
                   <div className="mt-auto space-y-1">
                     {consoleHistory.map((entry, i) => (
                       <div key={i} className="flex gap-4 group">
