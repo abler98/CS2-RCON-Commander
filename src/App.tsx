@@ -101,6 +101,12 @@ export default function App() {
   const [cvarSearch, setCvarSearch] = useState('');
   const [cvarPage, setCvarPage] = useState(1);
   const [isLoadingCvars, setIsLoadingCvars] = useState(false);
+  const [commandHistory, setCommandHistory] = useState<string[]>(() => {
+    const saved = localStorage.getItem('cs2_command_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [tempCommand, setTempCommand] = useState('');
   const consoleEndRef = useRef<HTMLDivElement>(null);
 
   // Server Actions State
@@ -157,6 +163,10 @@ export default function App() {
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [consoleHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('cs2_command_history', JSON.stringify(commandHistory));
+  }, [commandHistory]);
 
   const sanitizeConfig = (c: ServerDetails) => ({
     ...c,
@@ -345,6 +355,16 @@ export default function App() {
   const executeCommand = async (cmd: string = commandInput) => {
     if (!cmd.trim() || isExecuting) return;
     
+    // History management
+    if (cmd.trim()) {
+      setCommandHistory(prev => {
+        const newHistory = [cmd.trim(), ...prev.filter(h => h !== cmd.trim())].slice(0, 50);
+        return newHistory;
+      });
+    }
+    setHistoryIndex(-1);
+    setTempCommand('');
+
     addLog('command', cmd);
     if (cmd === commandInput) {
       setCommandInput('');
@@ -597,8 +617,8 @@ export default function App() {
 
           <div className="w-full px-3 flex flex-col gap-2">
             {[
+              { id: 'dashboard', icon: LayoutDashboard, label: 'Status' },
               { id: 'console', icon: Terminal, label: 'Console' },
-              { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
               { id: 'players', icon: Users, label: 'Players' },
               { id: 'maps', icon: MapIcon, label: 'Maps' },
               { id: 'gamemodes', icon: Zap, label: 'Modes' },
@@ -729,8 +749,8 @@ export default function App() {
                       <Shield className="w-4 h-4 text-cs-green" />
                       <span className="text-[10px] font-bold tracking-widest">OS Infrastructure</span>
                     </div>
-                    <div className="font-mono text-sm uppercase">
-                      {serverInfo?.os_type || 'Generic Kernel'}
+                    <div className="font-mono text-sm leading-relaxed">
+                      {serverInfo?.os_type?.toLowerCase() || 'generic kernel'}
                     </div>
                   </div>
                 </div>
@@ -1162,7 +1182,32 @@ export default function App() {
                     <input 
                       type="text" 
                       value={commandInput}
-                      onChange={(e) => setCommandInput(e.target.value)}
+                      onChange={(e) => {
+                        setCommandInput(e.target.value);
+                        if (historyIndex === -1) {
+                          setTempCommand(e.target.value);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          if (historyIndex < commandHistory.length - 1) {
+                            const newIndex = historyIndex + 1;
+                            setHistoryIndex(newIndex);
+                            setCommandInput(commandHistory[newIndex]);
+                          }
+                        } else if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          if (historyIndex > 0) {
+                            const newIndex = historyIndex - 1;
+                            setHistoryIndex(newIndex);
+                            setCommandInput(commandHistory[newIndex]);
+                          } else if (historyIndex === 0) {
+                            setHistoryIndex(-1);
+                            setCommandInput(tempCommand);
+                          }
+                        }
+                      }}
                       placeholder={isConnected ? "Type command (e.g. status, changelevel, kick)..." : "Initialize connection to send commands..."}
                       disabled={!isConnected || isExecuting}
                       className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-mono placeholder:text-cs-muted/40 outline-none"

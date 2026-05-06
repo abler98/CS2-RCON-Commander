@@ -53,7 +53,7 @@ docker run -d \
 
 ## ✨ Key Functionalities
 
-### 📊 Real-time Dashboard
+### 📊 Real-time Status
 * **System Efficiency**: Monitor server performance metrics.
 * **TPS & VAR**: Track Tickrate Precision and Variance directly from RCON status.
 * **Quick Controls**: Instant access to common tasks like restarting rounds or changing maps.
