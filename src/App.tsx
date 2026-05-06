@@ -107,7 +107,22 @@ export default function App() {
   });
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [tempCommand, setTempCommand] = useState('');
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const [autocompleteIndex, setAutocompleteIndex] = useState(0);
   const consoleEndRef = useRef<HTMLDivElement>(null);
+  const commandInputRef = useRef<HTMLInputElement>(null);
+
+  const COMMON_COMMANDS = [
+    'status', 'stats', 'users', 'maps', 'changelevel', 'ds_workshop_changelevel', 
+    'mp_restartgame', 'mp_warmup_start', 'mp_warmup_end', 'mp_pause_match', 'mp_unpause_match',
+    'sv_cheats', 'sv_gravity', 'sv_infinite_ammo', 'bot_add', 'bot_kick', 'bot_quota',
+    'kick', 'banid', 'banip', 'unban', 'say', 'mp_roundtime', 'mp_freezetime', 'mp_buytime',
+    'vignette', 'tv_record', 'tv_stop', 'tv_status', 'exec', 'writeid', 'writeip'
+  ];
+
+  const autocompleteSuggestions = commandInput.trim() 
+    ? COMMON_COMMANDS.filter(cmd => cmd.toLowerCase().startsWith(commandInput.toLowerCase()) && cmd !== commandInput)
+    : [];
 
   // Server Actions State
   const [botQuota, setBotQuota] = useState(10);
@@ -364,6 +379,7 @@ export default function App() {
     }
     setHistoryIndex(-1);
     setTempCommand('');
+    setShowAutocomplete(false);
 
     addLog('command', cmd);
     if (cmd === commandInput) {
@@ -393,6 +409,8 @@ export default function App() {
       addLog('error', 'Console error: ' + err.message);
     } finally {
       setIsExecuting(false);
+      // Focus back to input
+      setTimeout(() => commandInputRef.current?.focus(), 0);
     }
   };
 
@@ -1179,39 +1197,82 @@ export default function App() {
                 <div className="h-14 border-t border-cs-border bg-cs-bg-panel px-4 flex items-center gap-3 shrink-0">
                   <span className="text-cs-yellow font-mono font-bold text-xs">RCON</span>
                   <form onSubmit={(e) => { e.preventDefault(); executeCommand(); }} className="flex-1 flex items-center gap-3">
-                    <input 
-                      type="text" 
-                      value={commandInput}
-                      onChange={(e) => {
-                        setCommandInput(e.target.value);
-                        if (historyIndex === -1) {
-                          setTempCommand(e.target.value);
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'ArrowUp') {
-                          e.preventDefault();
-                          if (historyIndex < commandHistory.length - 1) {
-                            const newIndex = historyIndex + 1;
-                            setHistoryIndex(newIndex);
-                            setCommandInput(commandHistory[newIndex]);
+                    <div className="flex-1 relative">
+                      <input 
+                        ref={commandInputRef}
+                        type="text" 
+                        value={commandInput}
+                        onChange={(e) => {
+                          setCommandInput(e.target.value);
+                          if (historyIndex === -1) {
+                            setTempCommand(e.target.value);
                           }
-                        } else if (e.key === 'ArrowDown') {
-                          e.preventDefault();
-                          if (historyIndex > 0) {
-                            const newIndex = historyIndex - 1;
-                            setHistoryIndex(newIndex);
-                            setCommandInput(commandHistory[newIndex]);
-                          } else if (historyIndex === 0) {
-                            setHistoryIndex(-1);
-                            setCommandInput(tempCommand);
+                          setShowAutocomplete(true);
+                          setAutocompleteIndex(0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab' && autocompleteSuggestions.length > 0) {
+                            e.preventDefault();
+                            setCommandInput(autocompleteSuggestions[autocompleteIndex]);
+                            setShowAutocomplete(false);
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            if (showAutocomplete && autocompleteSuggestions.length > 0) {
+                              setAutocompleteIndex(prev => (prev > 0 ? prev - 1 : autocompleteSuggestions.length - 1));
+                            } else if (historyIndex < commandHistory.length - 1) {
+                              const newIndex = historyIndex + 1;
+                              setHistoryIndex(newIndex);
+                              setCommandInput(commandHistory[newIndex]);
+                            }
+                          } else if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            if (showAutocomplete && autocompleteSuggestions.length > 0) {
+                              setAutocompleteIndex(prev => (prev < autocompleteSuggestions.length - 1 ? prev + 1 : 0));
+                            } else if (historyIndex > 0) {
+                              const newIndex = historyIndex - 1;
+                              setHistoryIndex(newIndex);
+                              setCommandInput(commandHistory[newIndex]);
+                            } else if (historyIndex === 0) {
+                              setHistoryIndex(-1);
+                              setCommandInput(tempCommand);
+                            }
+                          } else if (e.key === 'Escape') {
+                            setShowAutocomplete(false);
                           }
-                        }
-                      }}
-                      placeholder={isConnected ? "Type command (e.g. status, changelevel, kick)..." : "Initialize connection to send commands..."}
-                      disabled={!isConnected || isExecuting}
-                      className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-mono placeholder:text-cs-muted/40 outline-none"
-                    />
+                        }}
+                        onBlur={() => {
+                          // Delay hiding to allow click on suggestion
+                          setTimeout(() => setShowAutocomplete(false), 200);
+                        }}
+                        placeholder={isConnected ? "Type command (e.g. status, changelevel, kick)..." : "Initialize connection to send commands..."}
+                        disabled={!isConnected || isExecuting}
+                        className="w-full bg-transparent border-none focus:ring-0 text-sm font-mono placeholder:text-cs-muted/40 outline-none"
+                      />
+
+                      {showAutocomplete && autocompleteSuggestions.length > 0 && (
+                        <div className="absolute bottom-full left-0 mb-2 w-64 bg-cs-bg-panel border border-cs-border rounded-lg shadow-xl z-50 overflow-hidden">
+                          <div className="p-2 border-b border-cs-border bg-black/20 flex justify-between items-center">
+                            <span className="text-[9px] font-bold text-cs-muted uppercase tracking-widest">Suggestions</span>
+                            <span className="text-[8px] text-cs-muted/50 font-mono">TAB to select</span>
+                          </div>
+                          <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                            {autocompleteSuggestions.map((suggestion, idx) => (
+                              <div 
+                                key={suggestion}
+                                onClick={() => {
+                                  setCommandInput(suggestion);
+                                  setShowAutocomplete(false);
+                                  commandInputRef.current?.focus();
+                                }}
+                                className={`px-4 py-2 text-xs font-mono cursor-pointer transition-colors ${idx === autocompleteIndex ? 'bg-cs-yellow/10 text-cs-yellow' : 'text-cs-muted hover:bg-white/5'}`}
+                              >
+                                {suggestion}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 text-[10px] text-cs-muted uppercase font-bold">
                       {isExecuting ? <Loader2 className="w-3 h-3 animate-spin" /> : "ENTER"}
                     </div>
