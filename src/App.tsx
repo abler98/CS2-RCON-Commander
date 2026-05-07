@@ -77,6 +77,8 @@ export default function App() {
   const [showRawWorkshop, setShowRawWorkshop] = useState(false);
   const [isFetchingMaps, setIsFetchingMaps] = useState(false);
   const [mapSortOrder, setMapSortOrder] = useState<'name' | 'source'>('name');
+  const [mapSearch, setMapSearch] = useState('');
+  const [mapTagFilter, setMapTagFilter] = useState<'all' | 'Defusal' | 'Hostage Rescue' | 'Arms Race'>('all');
   const [configEdited, setConfigEdited] = useState(false);
   const [hasAutoConnectAttempted, setHasAutoConnectAttempted] = useState(false);
   const [theme, setTheme] = useState(THEMES[0]);
@@ -492,6 +494,38 @@ export default function App() {
     if (found) return found.name;
     if (type === undefined || mode === undefined) return 'Unknown';
     return `Custom (${type}:${mode})`;
+  };
+  
+  const getMapMetadata = (id: string) => {
+    const lowId = id.toLowerCase();
+    
+    let tag: 'Defusal' | 'Hostage Rescue' | 'Arms Race' | undefined = undefined;
+    let cleanName = id;
+
+    // CS2/CS:GO conventions
+    if (lowId.includes('de_')) {
+      tag = 'Defusal';
+    } else if (lowId.includes('cs_') || lowId.includes('cs2_')) {
+      tag = 'Hostage Rescue';
+    } else if (lowId.includes('ar_')) {
+      tag = 'Arms Race';
+    }
+
+    // Clean name: remove prefixes like de_, cs_, cs2_, ar_ or mirror_cs_
+    // we want to remove the specific tag markers
+    // Example: de_dust2 -> dust2, mirror_cs_office -> mirror office
+    cleanName = cleanName.replace(/^(de_|cs_|cs2_|ar_)/i, '');
+    cleanName = cleanName.replace(/(_de_|_cs_|_cs2_|_ar_)/i, ' ');
+    
+    // Final polish on name
+    cleanName = cleanName.split(/[_\/]/).map((part: string) => {
+      const lower = part.toLowerCase();
+      if (lower === 'cs2') return 'CS2';
+      if (lower === 'cs') return 'CS';
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    }).join(' ').replace(/\s+/g, ' ').trim();
+
+    return { tag, name: cleanName };
   };
 
   const formatMapLabel = (rawName: string) => {
@@ -1456,88 +1490,147 @@ export default function App() {
                 exit={{ opacity: 0, x: 10 }}
                 className="flex-1 p-8 flex flex-col min-h-0"
               >
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-2xl font-bold tracking-tight">Map List</h2>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setMapSortOrder(prev => prev === 'name' ? 'source' : 'name')}
-                      className="px-3 py-1 bg-cs-bg-panel border border-cs-border hover:bg-white/5 rounded text-[10px] font-bold tracking-widest uppercase transition-colors"
-                      title="Toggle Sort Order"
-                    >
-                      Sort: {mapSortOrder === 'name' ? 'Alphabetical' : 'By Source'}
-                    </button>
-                    <button 
-                      onClick={() => void syncMaps()}
-                      disabled={isFetchingMaps}
-                      className="p-2 bg-cs-bg-panel border border-cs-border hover:bg-white/5 rounded text-cs-muted hover:text-white transition-colors disabled:opacity-50"
-                      title="Sync Maps"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${isFetchingMaps ? 'animate-spin' : ''}`} />
-                    </button>
-                    <div className="px-3 py-1 bg-cs-yellow/10 border border-cs-yellow/20 rounded-full text-cs-yellow text-[10px] font-bold tracking-widest flex items-center">
-                      Change Server Map
+                <div className="flex flex-col gap-6 mb-8">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold tracking-tight">Map List</h2>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => setMapSortOrder(prev => prev === 'name' ? 'source' : 'name')}
+                        className="px-3 py-1 bg-cs-bg-panel border border-cs-border hover:bg-white/5 rounded text-[10px] font-bold tracking-widest uppercase transition-colors"
+                        title="Toggle Sort Order"
+                      >
+                        Sort: {mapSortOrder === 'name' ? 'Alphabetical' : 'By Source'}
+                      </button>
+                      <button 
+                        onClick={() => void syncMaps()}
+                        disabled={isFetchingMaps}
+                        className="p-2 bg-cs-bg-panel border border-cs-border hover:bg-white/5 rounded text-cs-muted hover:text-white transition-colors disabled:opacity-50"
+                        title="Sync Maps"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${isFetchingMaps ? 'animate-spin' : ''}`} />
+                      </button>
+                      <div className="px-3 py-1 bg-cs-yellow/10 border border-cs-yellow/20 rounded-full text-cs-yellow text-[10px] font-bold tracking-widest flex items-center">
+                        Change Server Map
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cs-muted" />
+                      <input 
+                        type="text"
+                        placeholder="Search maps by name or ID..."
+                        value={mapSearch}
+                        onChange={(e) => setMapSearch(e.target.value)}
+                        className="w-full bg-cs-bg-panel border border-cs-border rounded-lg py-2.5 pl-10 pr-4 text-sm outline-none focus:border-cs-yellow/50 transition-all font-mono"
+                      />
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 custom-scrollbar">
+                      {(['all', 'Defusal', 'Hostage Rescue', 'Arms Race'] as const).map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => setMapTagFilter(tag)}
+                          className={`px-4 py-2 rounded-lg text-[10px] font-bold tracking-widest uppercase border transition-all whitespace-nowrap ${
+                            mapTagFilter === tag 
+                              ? 'bg-cs-yellow text-black border-cs-yellow' 
+                              : 'bg-cs-bg-panel text-cs-muted border-cs-border hover:border-cs-muted/50'
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex-1 min-h-0 space-y-2 overflow-y-auto pr-2 custom-scrollbar">
-                  {[
-                    ...defaultMapOptions,
-                    ...workshopMaps.map(m => ({ 
-                      id: m.id.toLowerCase(), 
-                      name: m.name.split('_').map((w: string) => {
-                        const low = w.toLowerCase();
-                        if (low === 'cs2') return 'CS2';
-                        if (low === 'cs') return 'CS';
-                        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-                      }).join(' '),
-                      rawName: m.name.toLowerCase(),
-                      type: 'workshop' as const 
-                    }))
-                  ].sort((a: any, b: any) => {
-                    if (mapSortOrder === 'source') {
-                      if (a.type !== b.type) return a.type === 'default' ? -1 : 1;
+                  {(() => {
+                    const allMaps = [
+                      ...defaultMapOptions.map(m => {
+                        const meta = getMapMetadata(m.id || m.name);
+                        return { ...m, ...meta, rawName: m.id || m.name, type: 'default' as const };
+                      }),
+                      ...workshopMaps.map(m => {
+                        const meta = getMapMetadata(m.name);
+                        return { ...m, ...meta, rawName: m.name.toLowerCase(), id: m.id.toLowerCase(), type: 'workshop' as const };
+                      })
+                    ];
+
+                    const filtered = allMaps.filter(map => {
+                      const matchesSearch = map.name.toLowerCase().includes(mapSearch.toLowerCase()) || 
+                                          map.rawName.toLowerCase().includes(mapSearch.toLowerCase());
+                      const matchesTag = mapTagFilter === 'all' || map.tag === mapTagFilter;
+                      return matchesSearch && matchesTag;
+                    }).sort((a: any, b: any) => {
+                      if (mapSortOrder === 'source') {
+                        if (a.type !== b.type) return a.type === 'default' ? -1 : 1;
+                      }
+                      return a.name.localeCompare(b.name);
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center py-20 opacity-30">
+                          <Search className="w-12 h-12 mb-4" />
+                          <p className="text-[10px] font-bold tracking-widest uppercase text-center">
+                            No maps matching "{mapSearch}" in {mapTagFilter === 'all' ? 'all categories' : mapTagFilter}
+                          </p>
+                        </div>
+                      );
                     }
-                    return a.name.localeCompare(b.name);
-                  }).map((map: any) => {
-                    const isCurrent = serverInfo?.map?.toLowerCase() === map.rawName?.toLowerCase() || 
-                                     serverInfo?.map?.toLowerCase() === map.id?.toLowerCase();
-                    
-                    return (
-                      <div 
-                        key={map.id}
-                        onClick={() => {
-                          if (map.type === 'workshop') {
-                            executeCommand(`ds_workshop_changelevel ${map.rawName || map.id}`);
-                          } else {
-                            executeAction('map', map.id);
-                          }
-                        }}
-                        className={`flex items-center justify-between p-4 bg-cs-bg-panel border border-cs-border rounded-lg cursor-pointer transition-all hover:bg-white/5 ${isCurrent ? 'border-cs-yellow/50 ring-1 ring-cs-yellow/30' : ''}`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className={`w-2 h-2 rounded-full ${isCurrent ? 'bg-cs-yellow animate-pulse' : 'bg-cs-muted/30'}`} />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-bold text-cs-yellow leading-tight">{map.name}</h3>
-                              <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${map.type === 'workshop' ? 'bg-cs-blue/20 text-cs-blue border border-cs-blue/30' : 'bg-cs-muted/10 text-cs-muted border border-cs-muted/20'}`}>
-                                {map.type === 'workshop' ? 'Workshop' : 'Default'}
-                              </span>
+
+                    return filtered.map((map: any) => {
+                      const isCurrent = serverInfo?.map?.toLowerCase() === map.rawName?.toLowerCase() || 
+                                       serverInfo?.map?.toLowerCase() === map.id?.toLowerCase();
+                      
+                      return (
+                        <div 
+                          key={map.id}
+                          onClick={() => {
+                            if (map.type === 'workshop') {
+                              executeCommand(`ds_workshop_changelevel ${map.rawName || map.id}`);
+                            } else {
+                              executeAction('map', map.id);
+                            }
+                          }}
+                          className={`flex items-center justify-between p-4 bg-cs-bg-panel border border-cs-border rounded-lg cursor-pointer transition-all hover:bg-white/5 ${isCurrent ? 'border-cs-yellow/50 ring-1 ring-cs-yellow/30' : ''}`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`w-2 h-2 rounded-full ${isCurrent ? 'bg-cs-yellow animate-pulse' : 'bg-cs-muted/30'}`} />
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-sm font-bold text-cs-yellow leading-tight">{map.name}</h3>
+                                <div className="flex gap-1">
+                                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${map.type === 'workshop' ? 'bg-cs-blue/20 text-cs-blue border border-cs-blue/30' : 'bg-cs-muted/10 text-cs-muted border border-cs-border'}`}>
+                                    {map.type === 'workshop' ? 'Workshop' : 'Default'}
+                                  </span>
+                                  {map.tag && (
+                                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${
+                                      map.tag === 'Defusal' ? 'bg-cs-red/20 text-cs-red border border-cs-red/30' : 
+                                      map.tag === 'Hostage Rescue' ? 'bg-cs-green/20 text-cs-green border border-cs-green/30' : 
+                                      'bg-cs-purple/20 text-cs-purple border border-cs-purple/30'
+                                    }`}>
+                                      {map.tag}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="text-[10px] font-mono text-cs-muted">
+                                {(map.rawName || map.id).toLowerCase().replace(/cs2/g, 'CS2').replace(/cs/g, 'CS')}
+                              </p>
                             </div>
-                            <p className="text-[10px] font-mono text-cs-muted">
-                              {(map.rawName || map.id).toLowerCase().replace(/cs2/g, 'CS2').replace(/cs/g, 'CS')}
-                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {isCurrent && (
+                              <span className="text-[9px] font-bold text-cs-yellow uppercase tracking-widest bg-cs-yellow/10 px-2 py-0.5 rounded">Current</span>
+                            )}
+                            <ChevronRight className="w-4 h-4 text-cs-muted" />
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          {isCurrent && (
-                            <span className="text-[9px] font-bold text-cs-yellow uppercase tracking-widest bg-cs-yellow/10 px-2 py-0.5 rounded">Current</span>
-                          )}
-                          <ChevronRight className="w-4 h-4 text-cs-muted" />
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    });
+                  })()}
                   
                   {isFetchingMaps && (
                     <div className="flex flex-col items-center justify-center py-12 gap-3 opacity-30">
