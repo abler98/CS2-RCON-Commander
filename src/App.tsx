@@ -116,6 +116,20 @@ export default function App() {
   const [tempCommand, setTempCommand] = useState('');
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const [autocompleteIndex, setAutocompleteIndex] = useState(0);
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    type: 'map' | 'gamemode' | 'action';
+    title: string;
+    description: string;
+    action: () => void;
+    data?: any;
+  }>({
+    show: false,
+    type: 'map',
+    title: '',
+    description: '',
+    action: () => {},
+  });
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const commandInputRef = useRef<HTMLInputElement>(null);
 
@@ -257,6 +271,20 @@ export default function App() {
       addLog('error', `Link Fault: ${err.message}`);
       return false;
     }
+  };
+
+  const confirmAction = (type: 'map' | 'gamemode' | 'action', title: string, description: string, action: () => void, data?: any) => {
+    setConfirmModal({
+      show: true,
+      type,
+      title,
+      description,
+      action: () => {
+        action();
+        setConfirmModal(prev => ({ ...prev, show: false }));
+      },
+      data
+    });
   };
 
   const fetchCvars = async (search: string = '') => {
@@ -1630,11 +1658,15 @@ export default function App() {
                               <div 
                                 key={map.id}
                                 onClick={() => {
-                                  if (map.type === 'workshop') {
-                                    executeCommand(`ds_workshop_changelevel ${map.rawName || map.id}`);
-                                  } else {
-                                    executeAction('map', map.id);
-                                  }
+                                  const mapName = map.name;
+                                  const changeAction = () => {
+                                    if (map.type === 'workshop') {
+                                      executeCommand(`ds_workshop_changelevel ${map.rawName || map.id}`);
+                                    } else {
+                                      executeAction('map', map.id);
+                                    }
+                                  };
+                                  confirmAction('map', `Change Map to ${mapName}?`, `The server will restart to load "${mapName}". Current progress will be lost.`, changeAction, { thumb: hasThumb ? thumbUrl : null });
                                 }}
                                 className={`group relative bg-cs-bg-panel border border-cs-border rounded-xl overflow-hidden cursor-pointer transition-all hover:border-cs-yellow/50 ${isCurrent ? 'ring-2 ring-cs-yellow border-cs-yellow' : ''}`}
                               >
@@ -1704,15 +1736,23 @@ export default function App() {
                           const isCurrent = serverInfo?.map?.toLowerCase() === map.rawName?.toLowerCase() || 
                                            serverInfo?.map?.toLowerCase() === map.id?.toLowerCase();
                           
+                          const rawId = (map.rawName || map.id).toLowerCase();
+                          const hasThumb = availableThumbnails.has(rawId);
+                          const thumbUrl = `https://raw.githubusercontent.com/ggMartinez/CS2-Maps-Images/main/maps/${rawId}.png`;
+                          
                           return (
                             <div 
                               key={map.id}
                               onClick={() => {
-                                if (map.type === 'workshop') {
-                                  executeCommand(`ds_workshop_changelevel ${map.rawName || map.id}`);
-                                } else {
-                                  executeAction('map', map.id);
-                                }
+                                const mapName = map.name;
+                                const changeAction = () => {
+                                  if (map.type === 'workshop') {
+                                    executeCommand(`ds_workshop_changelevel ${map.rawName || map.id}`);
+                                  } else {
+                                    executeAction('map', map.id);
+                                  }
+                                };
+                                confirmAction('map', `Change Map to ${mapName}?`, `The server will restart to load "${mapName}".`, changeAction, { thumb: hasThumb ? thumbUrl : null });
                               }}
                               className={`flex items-center justify-between p-4 bg-cs-bg-panel border border-cs-border rounded-lg cursor-pointer transition-all hover:bg-white/5 ${isCurrent ? 'border-cs-yellow/50 ring-1 ring-cs-yellow/30' : ''}`}
                             >
@@ -1806,7 +1846,7 @@ export default function App() {
                     return (
                       <div 
                         key={mode.name}
-                        onClick={() => executeAction('gamemode', `${mode.type} ${mode.mode}`, serverInfo?.map || 'de_dust2')}
+                        onClick={() => confirmAction('gamemode', `Change Mode to ${mode.name}?`, `The match will restart with ${mode.name} rules.`, () => executeAction('gamemode', `${mode.type} ${mode.mode}`, serverInfo?.map || 'de_dust2'))}
                         className={`flex items-center justify-between p-4 bg-cs-bg-panel border border-cs-border rounded-lg cursor-pointer transition-all hover:bg-white/5 ${isActive ? 'border-cs-blue/50 ring-1 ring-cs-blue/30' : ''}`}
                       >
                         <div className="flex items-center gap-4">
@@ -2083,6 +2123,65 @@ export default function App() {
 
       {/* Raw Output Modal */}
       <AnimatePresence>
+        {confirmModal.show && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-cs-bg-panel border border-cs-border rounded-xl w-full max-w-md relative z-10 overflow-hidden shadow-2xl"
+            >
+              <div className="bg-cs-yellow h-1 w-full" />
+              
+              <div className="p-8">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className={`p-3 rounded-lg ${confirmModal.type === 'map' ? 'bg-cs-yellow/20' : 'bg-cs-blue/20'}`}>
+                    {confirmModal.type === 'map' ? <MapIcon className="w-6 h-6 text-cs-yellow" /> : <Zap className="w-6 h-6 text-cs-blue" />}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold tracking-tight">{confirmModal.title}</h3>
+                    <p className="text-xs text-cs-muted font-bold uppercase tracking-widest mt-1">Confirmation Required</p>
+                  </div>
+                </div>
+
+                {confirmModal.data?.thumb && (
+                  <div className="aspect-video w-full rounded-lg overflow-hidden mb-6 border border-cs-border bg-black/40">
+                    <img src={confirmModal.data.thumb} className="w-full h-full object-cover" alt="Preview" />
+                  </div>
+                )}
+
+                <p className="text-sm text-cs-muted leading-relaxed mb-8">
+                  {confirmModal.description}
+                </p>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setConfirmModal(prev => ({ ...prev, show: false }))}
+                    className="flex-1 px-6 py-3 bg-white/5 border border-cs-border hover:bg-white/10 rounded-lg text-sm font-bold transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={confirmModal.action}
+                    className={`flex-1 px-6 py-3 rounded-lg text-sm font-bold transition-all shadow-lg shadow-black/20 ${
+                      confirmModal.type === 'map' ? 'bg-cs-yellow text-black hover:scale-[1.02]' : 'bg-cs-blue text-white hover:scale-[1.02]'
+                    }`}
+                  >
+                    Confirm Change
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showRawModal && (
           <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <motion.div 
