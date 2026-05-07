@@ -72,6 +72,8 @@ docker run -d \
 * **Smart Map Switching**: Supports vanilla maps and Workshop maps.
 * **Workshop Integration**: Automatically fetches your server's workshop maps using `ds_workshop_listmaps`.
 * **Visual Sorting**: Organize maps by name or by source (Default/Workshop).
+* **Map Thumbnails**: Maps display thumbnails existing on the repo [https://github.com/ggMartinez/CS2-Maps-Images](https://github.com/ggMartinez/CS2-Maps-Images)
+
 
 ### ⚙️ Game Mode & CVars
 * Switch between Competitive, Casual, Wingman, and more.
@@ -90,7 +92,6 @@ Includes several built-in color themes to match your setup:
 
 ## Credits
 ✨ Built with **[Google AI Studio](https://aistudio.google.com/)**
-Map thumbnails are fetched from [https://github.com/ggMartinez/CS2-Maps-Images](https://github.com/ggMartinez/CS2-Maps-Images)
 
 
 
