@@ -316,7 +316,7 @@ async function startServer() {
           trimmed.includes("RCON from")) return;
 
       // Pattern 1: [G:1:...] "name" (id)
-      const matchA = trimmed.match(/"([^"]+)"\s+\((\d+)\)/);
+      const matchA = trimmed.match(/"([^\"]+)"\s+\((\d+)\)/);
       if (matchA) {
         maps.push({ name: matchA[1], id: matchA[2], type: 'workshop' });
         return;
@@ -346,7 +346,7 @@ async function startServer() {
     return maps;
   };
 
-  app.post("/api/rcon/workshop-maps", async (req, res) => {
+  app.post("/api/rcon/installed-maps", async (req, res) => {
     let { host, port, password } = req.body;
     if (!host || !port || !password) return res.status(400).json({ error: "Missing parameters" });
     host = host.replace(/^(http|https):\/\//, "").split("/")[0];
