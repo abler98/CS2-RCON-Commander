@@ -79,6 +79,7 @@ export default function App() {
   const [mapSortOrder, setMapSortOrder] = useState<'name' | 'source'>('name');
   const [mapSearch, setMapSearch] = useState('');
   const [mapTagFilter, setMapTagFilter] = useState<'all' | 'Defusal' | 'Hostage Rescue' | 'Arms Race'>('all');
+  const [mapViewMode, setMapViewMode] = useState<'list' | 'grid'>('list');
   const [configEdited, setConfigEdited] = useState(false);
   const [hasAutoConnectAttempted, setHasAutoConnectAttempted] = useState(false);
   const [theme, setTheme] = useState(THEMES[0]);
@@ -1501,6 +1502,22 @@ export default function App() {
                       >
                         Sort: {mapSortOrder === 'name' ? 'Alphabetical' : 'By Source'}
                       </button>
+                      <div className="flex bg-cs-bg-panel border border-cs-border rounded overflow-hidden">
+                        <button 
+                          onClick={() => setMapViewMode('list')}
+                          className={`p-1.5 transition-colors ${mapViewMode === 'list' ? 'bg-cs-yellow text-black' : 'text-cs-muted hover:bg-white/5'}`}
+                          title="List View"
+                        >
+                          <Sliders className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={() => setMapViewMode('grid')}
+                          className={`p-1.5 transition-colors ${mapViewMode === 'grid' ? 'bg-cs-yellow text-black' : 'text-cs-muted hover:bg-white/5'}`}
+                          title="Grid View"
+                        >
+                          <LayoutDashboard className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                       <button 
                         onClick={() => void syncMaps()}
                         disabled={isFetchingMaps}
@@ -1544,7 +1561,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex-1 min-h-0 space-y-2 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
                   {(() => {
                     const allMaps = [
                       ...defaultMapOptions.map(m => {
@@ -1580,56 +1597,132 @@ export default function App() {
                       );
                     }
 
-                    return filtered.map((map: any) => {
-                      const isCurrent = serverInfo?.map?.toLowerCase() === map.rawName?.toLowerCase() || 
-                                       serverInfo?.map?.toLowerCase() === map.id?.toLowerCase();
-                      
+                    if (mapViewMode === 'grid') {
                       return (
-                        <div 
-                          key={map.id}
-                          onClick={() => {
-                            if (map.type === 'workshop') {
-                              executeCommand(`ds_workshop_changelevel ${map.rawName || map.id}`);
-                            } else {
-                              executeAction('map', map.id);
-                            }
-                          }}
-                          className={`flex items-center justify-between p-4 bg-cs-bg-panel border border-cs-border rounded-lg cursor-pointer transition-all hover:bg-white/5 ${isCurrent ? 'border-cs-yellow/50 ring-1 ring-cs-yellow/30' : ''}`}
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className={`w-2 h-2 rounded-full ${isCurrent ? 'bg-cs-yellow animate-pulse' : 'bg-cs-muted/30'}`} />
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="text-sm font-bold text-cs-yellow leading-tight">{map.name}</h3>
-                                <div className="flex gap-1">
-                                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${map.type === 'workshop' ? 'bg-cs-blue/20 text-cs-blue border border-cs-blue/30' : 'bg-cs-muted/10 text-cs-muted border border-cs-border'}`}>
-                                    {map.type === 'workshop' ? 'Workshop' : 'Default'}
-                                  </span>
-                                  {map.tag && (
-                                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${
-                                      map.tag === 'Defusal' ? 'bg-cs-red/20 text-cs-red border border-cs-red/30' : 
-                                      map.tag === 'Hostage Rescue' ? 'bg-cs-green/20 text-cs-green border border-cs-green/30' : 
-                                      'bg-cs-purple/20 text-cs-purple border border-cs-purple/30'
-                                    }`}>
-                                      {map.tag}
-                                    </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-8">
+                          {filtered.map((map: any) => {
+                            const isCurrent = serverInfo?.map?.toLowerCase() === map.rawName?.toLowerCase() || 
+                                             serverInfo?.map?.toLowerCase() === map.id?.toLowerCase();
+                            const thumbUrl = `https://raw.githubusercontent.com/ghostcap-gaming/cs2-map-images/master/cs2/${(map.rawName || map.id).toLowerCase()}.jpg`;
+                            
+                            return (
+                              <div 
+                                key={map.id}
+                                onClick={() => {
+                                  if (map.type === 'workshop') {
+                                    executeCommand(`ds_workshop_changelevel ${map.rawName || map.id}`);
+                                  } else {
+                                    executeAction('map', map.id);
+                                  }
+                                }}
+                                className={`group relative bg-cs-bg-panel border border-cs-border rounded-xl overflow-hidden cursor-pointer transition-all hover:border-cs-yellow/50 ${isCurrent ? 'ring-2 ring-cs-yellow border-cs-yellow' : ''}`}
+                              >
+                                <div className="aspect-video w-full bg-black/40 relative overflow-hidden flex items-center justify-center">
+                                  <img 
+                                    src={thumbUrl} 
+                                    alt={map.name}
+                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      (e.target as HTMLImageElement).parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+                                    }}
+                                  />
+                                  <div className="fallback hidden absolute inset-0 flex flex-col items-center justify-center bg-cs-bg-console/50 p-4 text-center">
+                                    <MapIcon className="w-8 h-8 text-cs-muted/20 mb-2" />
+                                    <span className="text-[9px] font-bold tracking-widest uppercase text-cs-muted/40">No Thumbnail</span>
+                                  </div>
+                                  
+                                  {isCurrent && (
+                                    <div className="absolute top-2 right-2 bg-cs-yellow text-black text-[8px] font-black px-1.5 py-0.5 rounded tracking-tighter uppercase shadow-lg">
+                                      Active
+                                    </div>
                                   )}
+                                  
+                                  <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
+                                    <div className="flex gap-1 flex-wrap">
+                                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${map.type === 'workshop' ? 'bg-cs-blue/80 text-white' : 'bg-white/10 text-white border border-white/10'}`}>
+                                        {map.type === 'workshop' ? 'Workshop' : 'System'}
+                                      </span>
+                                      {map.tag && (
+                                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase shadow-sm ${
+                                          map.tag === 'Defusal' ? 'bg-cs-red/80 text-white' : 
+                                          map.tag === 'Hostage Rescue' ? 'bg-cs-green/80 text-white' : 
+                                          'bg-cs-purple/80 text-white'
+                                        }`}>
+                                          {map.tag}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
+                                <div className="p-4">
+                                  <h3 className="text-sm font-bold text-cs-yellow leading-tight mb-1 truncate">{map.name}</h3>
+                                  <p className="text-[10px] font-mono text-cs-muted truncate">
+                                    {(map.rawName || map.id).toLowerCase().replace(/cs2/g, 'CS2').replace(/cs/g, 'CS')}
+                                  </p>
+                                </div>
+                                <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                               </div>
-                              <p className="text-[10px] font-mono text-cs-muted">
-                                {(map.rawName || map.id).toLowerCase().replace(/cs2/g, 'CS2').replace(/cs/g, 'CS')}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {isCurrent && (
-                              <span className="text-[9px] font-bold text-cs-yellow uppercase tracking-widest bg-cs-yellow/10 px-2 py-0.5 rounded">Current</span>
-                            )}
-                            <ChevronRight className="w-4 h-4 text-cs-muted" />
-                          </div>
+                            );
+                          })}
                         </div>
                       );
-                    });
+                    }
+
+                    return (
+                      <div className="space-y-2 pb-8">
+                        {filtered.map((map: any) => {
+                          const isCurrent = serverInfo?.map?.toLowerCase() === map.rawName?.toLowerCase() || 
+                                           serverInfo?.map?.toLowerCase() === map.id?.toLowerCase();
+                          
+                          return (
+                            <div 
+                              key={map.id}
+                              onClick={() => {
+                                if (map.type === 'workshop') {
+                                  executeCommand(`ds_workshop_changelevel ${map.rawName || map.id}`);
+                                } else {
+                                  executeAction('map', map.id);
+                                }
+                              }}
+                              className={`flex items-center justify-between p-4 bg-cs-bg-panel border border-cs-border rounded-lg cursor-pointer transition-all hover:bg-white/5 ${isCurrent ? 'border-cs-yellow/50 ring-1 ring-cs-yellow/30' : ''}`}
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className={`w-2 h-2 rounded-full ${isCurrent ? 'bg-cs-yellow animate-pulse' : 'bg-cs-muted/30'}`} />
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="text-sm font-bold text-cs-yellow leading-tight">{map.name}</h3>
+                                    <div className="flex gap-1">
+                                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${map.type === 'workshop' ? 'bg-cs-blue/20 text-cs-blue border border-cs-blue/30' : 'bg-cs-muted/10 text-cs-muted border border-cs-border'}`}>
+                                        {map.type === 'workshop' ? 'Workshop' : 'Default'}
+                                      </span>
+                                      {map.tag && (
+                                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${
+                                          map.tag === 'Defusal' ? 'bg-cs-red/20 text-cs-red border border-cs-red/30' : 
+                                          map.tag === 'Hostage Rescue' ? 'bg-cs-green/20 text-cs-green border border-cs-green/30' : 
+                                          'bg-cs-purple/20 text-cs-purple border border-cs-purple/30'
+                                        }`}>
+                                          {map.tag}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <p className="text-[10px] font-mono text-cs-muted">
+                                    {(map.rawName || map.id).toLowerCase().replace(/cs2/g, 'CS2').replace(/cs/g, 'CS')}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                {isCurrent && (
+                                  <span className="text-[9px] font-bold text-cs-yellow uppercase tracking-widest bg-cs-yellow/10 px-2 py-0.5 rounded">Current</span>
+                                )}
+                                <ChevronRight className="w-4 h-4 text-cs-muted" />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
                   })()}
                   
                   {isFetchingMaps && (
