@@ -1603,7 +1603,7 @@ export default function App() {
                           {filtered.map((map: any) => {
                             const isCurrent = serverInfo?.map?.toLowerCase() === map.rawName?.toLowerCase() || 
                                              serverInfo?.map?.toLowerCase() === map.id?.toLowerCase();
-                            const thumbUrl = `https://raw.githubusercontent.com/ghostcap-gaming/cs2-map-images/master/cs2/${(map.rawName || map.id).toLowerCase()}.jpg`;
+                            const thumbUrl = `https://raw.githubusercontent.com/ghostcap-gaming/cs2-map-images/master/cs2/${(map.rawName || map.id).toLowerCase()}.png`;
                             
                             return (
                               <div 
