@@ -79,7 +79,8 @@ export default function App() {
   const [mapSortOrder, setMapSortOrder] = useState<'name' | 'source'>('name');
   const [mapSearch, setMapSearch] = useState('');
   const [mapTagFilter, setMapTagFilter] = useState<'all' | 'Defusal' | 'Hostage Rescue' | 'Arms Race'>('all');
-  const [mapViewMode, setMapViewMode] = useState<'list' | 'grid'>('list');
+  const [mapViewMode, setMapViewMode] = useState<'list' | 'grid'>('grid');
+  const [availableThumbnails, setAvailableThumbnails] = useState<Set<string>>(new Set());
   const [configEdited, setConfigEdited] = useState(false);
   const [hasAutoConnectAttempted, setHasAutoConnectAttempted] = useState(false);
   const [theme, setTheme] = useState(THEMES[0]);
@@ -160,6 +161,24 @@ export default function App() {
       }
     };
     fetchEnvConfig();
+  }, []);
+
+  useEffect(() => {
+    const fetchAvailableThumbnails = async () => {
+      try {
+        const response = await fetch('https://raw.githubusercontent.com/ggMartinez/CS2-Maps-Images/main/list.json');
+        if (response.ok) {
+          const list = await response.json();
+          if (Array.isArray(list)) {
+            // Normalize names to lowercase and remove extensions for easier matching
+            setAvailableThumbnails(new Set(list.map(name => name.toLowerCase().replace(/\.(png|jpg|jpeg)$/, ''))));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch thumbnail list", err);
+      }
+    };
+    fetchAvailableThumbnails();
   }, []);
 
   useEffect(() => {
@@ -1603,7 +1622,9 @@ export default function App() {
                           {filtered.map((map: any) => {
                             const isCurrent = serverInfo?.map?.toLowerCase() === map.rawName?.toLowerCase() || 
                                              serverInfo?.map?.toLowerCase() === map.id?.toLowerCase();
-                            const thumbUrl = `https://raw.githubusercontent.com/ghostcap-gaming/cs2-map-images/master/cs2/${(map.rawName || map.id).toLowerCase()}.png`;
+                            const rawId = (map.rawName || map.id).toLowerCase();
+                            const hasThumb = availableThumbnails.has(rawId);
+                            const thumbUrl = `https://raw.githubusercontent.com/ggMartinez/CS2-Maps-Images/main/maps/${rawId}.png`;
                             
                             return (
                               <div 
@@ -1618,15 +1639,23 @@ export default function App() {
                                 className={`group relative bg-cs-bg-panel border border-cs-border rounded-xl overflow-hidden cursor-pointer transition-all hover:border-cs-yellow/50 ${isCurrent ? 'ring-2 ring-cs-yellow border-cs-yellow' : ''}`}
                               >
                                 <div className="aspect-video w-full bg-black/40 relative overflow-hidden flex items-center justify-center">
-                                  <img 
-                                    src={thumbUrl} 
-                                    alt={map.name}
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                    onError={(e) => {
-                                      (e.target as HTMLImageElement).style.display = 'none';
-                                      (e.target as HTMLImageElement).parentElement?.querySelector('.fallback')?.classList.remove('hidden');
-                                    }}
-                                  />
+                                  {hasThumb ? (
+                                    <img 
+                                      src={thumbUrl} 
+                                      alt={map.name}
+                                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                        (e.target as HTMLImageElement).parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-cs-bg-console/50 p-4 text-center">
+                                      <MapIcon className="w-8 h-8 text-cs-muted/20 mb-2" />
+                                      <span className="text-[9px] font-bold tracking-widest uppercase text-cs-muted/40">No Thumbnail</span>
+                                    </div>
+                                  )}
+                                  
                                   <div className="fallback hidden absolute inset-0 flex flex-col items-center justify-center bg-cs-bg-console/50 p-4 text-center">
                                     <MapIcon className="w-8 h-8 text-cs-muted/20 mb-2" />
                                     <span className="text-[9px] font-bold tracking-widest uppercase text-cs-muted/40">No Thumbnail</span>
@@ -1641,7 +1670,7 @@ export default function App() {
                                   <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
                                     <div className="flex gap-1 flex-wrap">
                                       <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${map.type === 'workshop' ? 'bg-cs-blue/80 text-white' : 'bg-white/10 text-white border border-white/10'}`}>
-                                        {map.type === 'workshop' ? 'Workshop' : 'System'}
+                                        {map.type === 'workshop' ? 'Workshop' : 'Default'}
                                       </span>
                                       {map.tag && (
                                         <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase shadow-sm ${

@@ -87,6 +87,11 @@ Includes several built-in color themes to match your setup:
 * **Cyberpunk**
 * **Monokai**
 * and more...
----
+
+## Credits
 ✨ Built with **[Google AI Studio](https://aistudio.google.com/)**
+Map thumbnails are fetched from [https://github.com/ggMartinez/CS2-Maps-Images](https://github.com/ggMartinez/CS2-Maps-Images)
+
+
+
 
