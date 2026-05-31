@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, Settings, Server, Users, Map as MapIcon, Zap, Send, Shield, Activity, Info, X, ChevronRight, Loader2, AlertTriangle, CheckCircle2, LayoutDashboard, Sliders, MessageSquare, Search, ChevronLeft, ChevronRight as ChevronRightIcon, RefreshCw, Palette } from 'lucide-react';
+import { Terminal, Settings, Server, Users, Map as MapIcon, Zap, Send, Shield, Activity, Info, X, ChevronRight, ChevronDown, Loader2, AlertTriangle, CheckCircle2, LayoutDashboard, Sliders, MessageSquare, Search, ChevronLeft, ChevronRight as ChevronRightIcon, RefreshCw, Palette, Power } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const THEMES = [
@@ -83,9 +83,13 @@ export default function App() {
   const [availableThumbnails, setAvailableThumbnails] = useState<Set<string>>(new Set());
   const [configEdited, setConfigEdited] = useState(false);
   const [hasAutoConnectAttempted, setHasAutoConnectAttempted] = useState(false);
-  const [theme, setTheme] = useState(THEMES[0]);
+  const [theme, setTheme] = useState(() => {
+    const savedThemeId = localStorage.getItem('theme');
+    return THEMES.find(t => t.id === savedThemeId) ?? THEMES[0];
+  });
 
   useEffect(() => {
+    localStorage.setItem('theme', theme.id);
     // Apply theme to body and root for global consistency
     const applyTheme = () => {
       THEMES.forEach(t => {
@@ -147,6 +151,7 @@ export default function App() {
 
   // Server Actions State
   const [botQuota, setBotQuota] = useState(10);
+  const [botQuotaMode, setBotQuotaMode] = useState('normal');
   const [restartSec, setRestartSec] = useState(1);
   const [ctName, setCtName] = useState('');
   const [tName, setTName] = useState('');
@@ -287,7 +292,7 @@ export default function App() {
     });
   };
 
-  const fetchCvars = async (search: string = '') => {
+  const fetchCvars = async () => {
     setIsLoadingCvars(true);
     const sanitized = sanitizeConfig(config);
     try {
@@ -296,8 +301,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           ...sanitized, 
-          password: btoa(unescape(encodeURIComponent(config.password))),
-          search 
+          password: btoa(unescape(encodeURIComponent(config.password)))
         }),
       });
       const data = await res.json();
@@ -321,10 +325,27 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (isConnected && activeTab === 'cvars' && cvars.length === 0) {
+    if (isConnected && (activeTab === 'cvars' || activeTab === 'actions') && cvars.length === 0) {
       fetchCvars();
     }
   }, [isConnected, activeTab]);
+
+  useEffect(() => {
+    cvars.forEach(c => {
+      if (c.name === 'mp_friendlyfire') {
+        setFriendlyFire(c.value === '1' || c.value.toLowerCase() === 'true');
+      }
+      if (c.name === 'bot_quota') {
+        const botQuotaValue = parseInt(c.value);
+        if (!isNaN(botQuotaValue)) {
+          setBotQuota(botQuotaValue);
+        }
+      }
+      if (c.name === 'bot_quota_mode') {
+        setBotQuotaMode(c.value);
+      }
+    });
+  }, [cvars]);
 
   const filteredCvars = cvars.filter(c => 
     c.name.toLowerCase().includes(cvarSearch.toLowerCase()) || 
@@ -702,12 +723,26 @@ export default function App() {
               )}
             </div>
           </div>
-          <button 
+          <button
             onClick={() => executeCommand('mp_restartgame 1')}
             disabled={!isConnected}
             className="px-4 py-2 bg-cs-red hover:brightness-110 disabled:opacity-20 text-white text-[10px] font-bold rounded shadow-lg shadow-red-900/20 active:scale-95 transition-all uppercase tracking-wider"
           >
             RESTART ROUND
+          </button>
+          <button
+            onClick={() => confirmAction(
+              'action',
+              'Shutdown Server',
+              'This will execute the "quit" command and stop the dedicated server process. The server will go offline.',
+              () => executeCommand('quit')
+            )}
+            disabled={!isConnected}
+            className="flex items-center gap-1.5 px-4 py-2 bg-cs-red/20 border border-cs-red/50 hover:bg-cs-red/30 disabled:opacity-20 text-cs-red text-[10px] font-bold rounded active:scale-95 transition-all uppercase tracking-wider"
+            title="Shutdown Server (quit)"
+          >
+            <Power className="w-3.5 h-3.5" />
+            SHUTDOWN
           </button>
           <div className="hidden lg:flex items-center gap-6 border-l border-cs-border pl-6 ml-2">
             <div className="flex flex-col items-end">
@@ -987,8 +1022,17 @@ export default function App() {
               >
                 <div className="flex items-center justify-between mb-8">
                   <h2 className="text-2xl font-bold tracking-tight text-white">Server Actions</h2>
-                  <div className="px-3 py-1 bg-cs-yellow/10 border border-cs-yellow/20 rounded-full text-cs-yellow text-[10px] font-bold tracking-widest">
-                    Live Session Management
+                  <div className="flex gap-3">
+                     <button
+                       onClick={() => fetchCvars()}
+                       className="p-2.5 bg-cs-bg-panel border border-cs-border hover:bg-cs-border/50 rounded transition-colors"
+                       title="Force Fetch All"
+                     >
+                        <RefreshCw className={`w-4 h-4 ${isLoadingCvars ? 'animate-spin' : ''}`} />
+                     </button>
+                     <div className="px-3 py-1 bg-cs-yellow/10 border border-cs-yellow/20 rounded-full text-cs-yellow text-[10px] font-bold tracking-widest flex items-center">
+                       Live Session Management
+                     </div>
                   </div>
                 </div>
 
@@ -1130,6 +1174,25 @@ export default function App() {
                              </button>
                            </div>
                         </div>
+                        <div className="space-y-2">
+                           <label htmlFor="bot-quota-mode" className="text-[10px] uppercase text-cs-muted font-bold">Quota Mode</label>
+                           <div className="relative">
+                             <select
+                               id="bot-quota-mode"
+                               value={botQuotaMode}
+                               onChange={(e) => {
+                                 setBotQuotaMode(e.target.value);
+                                 executeCommand(`bot_quota_mode ${e.target.value}`);
+                               }}
+                               className="w-full appearance-none bg-cs-bg-main border border-cs-border rounded pl-3 pr-9 py-2 text-[11px] font-bold uppercase tracking-wide text-cs-text focus:outline-none focus:border-cs-yellow cursor-pointer"
+                             >
+                               <option value="normal">Normal</option>
+                               <option value="fill">Fill</option>
+                               <option value="match">Match</option>
+                             </select>
+                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-cs-muted pointer-events-none" />
+                           </div>
+                        </div>
                       </div>
                     </div>
 
@@ -1200,7 +1263,7 @@ export default function App() {
                         <Terminal className="w-3.5 h-3.5" /> Raw View
                      </button>
                      <button 
-                       onClick={() => fetchCvars(cvarSearch)}
+                       onClick={() => fetchCvars()}
                        className="p-2.5 bg-cs-bg-panel border border-cs-border hover:bg-cs-border/50 rounded transition-colors"
                        title="Force Fetch All"
                      >
