@@ -1,11 +1,129 @@
+import "dotenv/config";
 import express from "express";
+import type { Response } from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { Rcon } from "rcon-client";
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+// --- CS2 HTTP log ingestion (logaddress_add_http) ---------------------------
+// Logs are pushed by CS2 game servers and grouped in memory per server address
+// (the `x-server-addr` header). Each endpoint is protected by an HMAC-SHA256 of
+// that address, so a token only grants access to one specific server's logs.
+
+interface LogEntry {
+  id: number; // monotonic per-server sequence id (Last-Event-ID target)
+  ts: number; // Date.now() at ingest
+  line: string; // raw log line, without trailing newline
+}
+
+interface Subscriber {
+  res: Response; // the open SSE response
+  heartbeat: NodeJS.Timeout; // per-subscriber keep-alive timer
+}
+
+interface ServerLogStore {
+  buffer: LogEntry[]; // ring buffer, capped at LOG_MAX_LINES_PER_SERVER
+  nextId: number; // never reset on eviction, so SSE ids stay monotonic
+  subscribers: Set<Subscriber>; // SSE clients tailing this server
+  lastSeen: number; // Date.now() of last ingest (for LRU server eviction)
+}
+
+const logStores = new Map<string, ServerLogStore>(); // key = x-server-addr
+
+const LOG_INGEST_SECRET = process.env.LOG_INGEST_SECRET || "";
+const LOG_MAX_LINES_PER_SERVER = Number(process.env.LOG_MAX_LINES_PER_SERVER) || 1000;
+const LOG_MAX_SERVERS = Number(process.env.LOG_MAX_SERVERS) || 50;
+
+// Returns lowercase hex HMAC-SHA256 of the server address, or null if no secret
+// is configured (in which case ingestion/streaming are disabled).
+function signServerAddr(addr: string): string | null {
+  if (!LOG_INGEST_SECRET) {
+    return null;
+  }
+  return createHmac("sha256", LOG_INGEST_SECRET).update(addr).digest("hex");
+}
+
+// Timing-safe comparison of a provided token against the expected signature.
+function verifyToken(addr: string, token: unknown): boolean {
+  const expected = signServerAddr(addr);
+  if (!expected || typeof token !== "string") {
+    return false;
+  }
+  const a = Buffer.from(expected, "utf8");
+  const b = Buffer.from(token, "utf8");
+  // timingSafeEqual throws on length mismatch, so guard first.
+  if (a.length !== b.length) {
+    return false;
+  }
+  return timingSafeEqual(a, b);
+}
+
+function getOrCreateStore(addr: string): ServerLogStore {
+  let store = logStores.get(addr);
+  if (store) {
+    return store;
+  }
+
+  // Enforce the distinct-server cap before adding a new key by evicting the
+  // least-recently-seen store that has no active subscribers.
+  if (logStores.size >= LOG_MAX_SERVERS) {
+    let oldestKey: string | null = null;
+    let oldestSeen = Infinity;
+    for (const [key, candidate] of logStores) {
+      if (candidate.subscribers.size === 0 && candidate.lastSeen < oldestSeen) {
+        oldestSeen = candidate.lastSeen;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey !== null) {
+      logStores.delete(oldestKey);
+    }
+  }
+
+  store = { buffer: [], nextId: 1, subscribers: new Set(), lastSeen: Date.now() };
+  logStores.set(addr, store);
+  return store;
+}
+
+function sseFrame(entry: LogEntry): string {
+  return `id: ${entry.id}\nevent: log\ndata: ${JSON.stringify(entry)}\n\n`;
+}
+
+// Append new lines to a store's ring buffer and broadcast them to subscribers.
+function appendAndBroadcast(store: ServerLogStore, lines: string[]): void {
+  if (lines.length === 0) {
+    return;
+  }
+
+  const now = Date.now();
+  const newEntries: LogEntry[] = [];
+  for (const line of lines) {
+    const entry: LogEntry = { id: store.nextId++, ts: now, line };
+    store.buffer.push(entry);
+    newEntries.push(entry);
+  }
+
+  if (store.buffer.length > LOG_MAX_LINES_PER_SERVER) {
+    store.buffer.splice(0, store.buffer.length - LOG_MAX_LINES_PER_SERVER);
+  }
+
+  store.lastSeen = now;
+
+  for (const sub of store.subscribers) {
+    for (const entry of newEntries) {
+      try {
+        sub.res.write(sseFrame(entry));
+      } catch {
+        // Dead socket; cleanup happens via the request 'close' handler.
+      }
+    }
+  }
+}
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
 
@@ -42,7 +160,13 @@ async function startServer() {
         timeout: 5000
       });
       await rcon.end();
-      res.json({ success: true, message: "Connected successfully" });
+
+      // Provide the HMAC signature the frontend needs to read this server's logs
+      // (and to build the logaddress_add_http URL). null when no secret is set.
+      const serverAddr = `${host}:${port}`;
+      const signature = signServerAddr(serverAddr);
+      
+      res.json({ success: true, message: "Connected successfully", serverAddr, signature });
     } catch (error: any) {
       console.error(`RCON Test Error: ${error.message}`);
       res.status(500).json({ success: false, error: error.message || "Connection failed" });
@@ -551,6 +675,107 @@ async function startServer() {
     }
   });
 
+  // --- CS2 log endpoints ----------------------------------------------------
+
+  // Endpoint A: receive logs pushed by CS2 via `logaddress_add_http`.
+  // The token (path segment) must equal HMAC-SHA256(secret, x-server-addr).
+  // Route-level text parser so the existing express.json() routes are untouched.
+  app.post(
+    "/api/logs/ingest/:token",
+    express.text({ type: () => true, limit: "256kb" }),
+    (req, res) => {
+      if (!LOG_INGEST_SECRET) {
+        return res.status(503).json({ error: "Log ingestion disabled (LOG_INGEST_SECRET not set)" });
+      }
+
+      const serverAddr = String(req.headers["x-server-addr"] || "").trim();
+      if (!serverAddr) {
+        return res.status(400).json({ error: "Missing x-server-addr header" });
+      }
+
+      if (!verifyToken(serverAddr, req.params.token)) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+
+      const body = typeof req.body === "string" ? req.body : "";
+      const lines = body.split(/\r?\n/).filter((line) => line.length > 0);
+
+      const store = getOrCreateStore(serverAddr);
+      appendAndBroadcast(store, lines);
+
+      if (process.env.DEBUG === "true") {
+        console.log(`[logs] +${lines.length} from ${serverAddr} (buf=${store.buffer.length}, subs=${store.subscribers.size})`);
+      }
+
+      // Respond fast; CS2 ignores the body.
+      res.status(200).end();
+    }
+  );
+
+  // Endpoint B: tail a server's logs via SSE. HMAC-protected via ?token=.
+  // `?n=` backfills the last N lines, then new lines stream in real time.
+  app.get("/api/logs/stream/:addr", (req, res) => {
+    if (!LOG_INGEST_SECRET) {
+      return res.status(503).json({ error: "Log streaming disabled (LOG_INGEST_SECRET not set)" });
+    }
+
+    const addr = decodeURIComponent(req.params.addr);
+    if (!verifyToken(addr, req.query.token)) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    const requestedN = Number(req.query.n);
+    const n = Number.isFinite(requestedN)
+      ? Math.max(0, Math.min(requestedN, LOG_MAX_LINES_PER_SERVER))
+      : 200;
+
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no"); // disable proxy (nginx) buffering
+    res.flushHeaders?.();
+
+    const store = getOrCreateStore(addr);
+
+    // Backfill: on reconnect replay entries after Last-Event-ID, else the last N
+    // lines. The incremental replay only applies when the cursor falls inside the
+    // current buffer's id range. If it's beyond the newest id, the client's cursor
+    // is stale (e.g. the server restarted and ids reset) — fall back to the last N
+    // so the client recovers; it de-dupes by timestamp+id on its end.
+    const lastEventId = Number(req.headers["last-event-id"]);
+    const oldestId = store.buffer.length > 0 ? store.buffer[0].id : 0;
+    const newestId = store.buffer.length > 0 ? store.buffer[store.buffer.length - 1].id : 0;
+    let backfill: LogEntry[];
+    if (Number.isFinite(lastEventId) && lastEventId >= oldestId - 1 && lastEventId < newestId) {
+      backfill = store.buffer.filter((entry) => entry.id > lastEventId);
+    } else {
+      backfill = n > 0 ? store.buffer.slice(-n) : [];
+    }
+    for (const entry of backfill) {
+      res.write(sseFrame(entry));
+    }
+
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(": ping\n\n");
+      } catch {
+        // Ignore; cleanup happens on 'close'.
+      }
+    }, 20000);
+
+    const subscriber: Subscriber = { res, heartbeat };
+    store.subscribers.add(subscriber);
+
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      store.subscribers.delete(subscriber);
+      if (process.env.DEBUG === "true") {
+        console.log(`[logs] SSE closed for ${addr} (subs=${store.subscribers.size})`);
+      }
+    });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -570,6 +795,9 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
+    if (!LOG_INGEST_SECRET) {
+      console.warn("[logs] LOG_INGEST_SECRET not set; CS2 log ingestion and streaming are disabled");
+    }
   });
 }
 

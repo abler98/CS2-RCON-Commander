@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, Settings, Server, Users, Map as MapIcon, Zap, Send, Shield, Activity, Info, X, ChevronRight, ChevronDown, Loader2, AlertTriangle, CheckCircle2, LayoutDashboard, Sliders, MessageSquare, Search, ChevronLeft, ChevronRight as ChevronRightIcon, RefreshCw, Palette, Power } from 'lucide-react';
+import { Terminal, Settings, Server, Users, Map as MapIcon, Zap, Shield, Activity, Info, X, ChevronRight, ChevronDown, Loader2, AlertTriangle, CheckCircle2, LayoutDashboard, Sliders, MessageSquare, Search, ChevronLeft, ChevronRight as ChevronRightIcon, RefreshCw, Palette, Power, ScrollText, Trash2, Pause, Play, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const THEMES = [
@@ -24,6 +24,15 @@ const THEMES = [
   { id: 'dracula', name: 'Dracula', class: 'theme-dracula' },
 ];
 
+// Options for how many log lines the Logs tab keeps in view (Infinity = unlimited).
+const LOG_LIMIT_OPTIONS: { label: string; value: number }[] = [
+  { label: '500', value: 500 },
+  { label: '1000', value: 1000 },
+  { label: '2000', value: 2000 },
+  { label: '5000', value: 5000 },
+  { label: 'Unlimited', value: Infinity },
+];
+
 interface ServerDetails {
   host: string;
   port: string;
@@ -34,6 +43,12 @@ interface ConsoleEntry {
   type: 'command' | 'response' | 'error';
   content: string;
   timestamp: Date;
+}
+
+interface LogLine {
+  id: number;
+  timestamp: Date;
+  line: string;
 }
 
 interface CVar {
@@ -65,7 +80,7 @@ export default function App() {
   const [commandInput, setCommandInput] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [showConfig, setShowConfig] = useState(!config.host);
-  const [activeTab, setActiveTab] = useState<'console' | 'players' | 'maps' | 'gamemodes' | 'dashboard' | 'actions' | 'cvars'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'console' | 'logs' | 'players' | 'maps' | 'gamemodes' | 'dashboard' | 'actions' | 'cvars'>('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     return localStorage.getItem('cs2_sidebar_collapsed') === 'true';
   });
@@ -136,6 +151,34 @@ export default function App() {
   });
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const commandInputRef = useRef<HTMLInputElement>(null);
+
+  // Live server logs (SSE) — see /api/logs/stream on the backend
+  const [logSignature, setLogSignature] = useState<string | null>(null);
+  const [logServerAddr, setLogServerAddr] = useState<string | null>(null);
+  const [logs, setLogs] = useState<LogLine[]>([]);
+  const [sseStatus, setSseStatus] = useState<'idle' | 'connecting' | 'open' | 'error'>('idle');
+  // When paused, the view freezes while new logs collect in logBufferRef; they
+  // get flushed into `logs` on resume. logsPausedRef mirrors the state so the
+  // SSE handler (a stable closure) reads the latest value without re-subscribing.
+  // pausedCount is how many logs arrived while paused (not capped by the buffer).
+  const [logsPaused, setLogsPaused] = useState(false);
+  const [pausedCount, setPausedCount] = useState(0);
+  const [copiedIngest, setCopiedIngest] = useState(false);
+  // Max log lines kept in the view/buffer (Infinity = unlimited). logLimitRef
+  // mirrors it so the stable SSE handler closure reads the latest value.
+  const [logLimit, setLogLimit] = useState(1000);
+  const [showLogLimitMenu, setShowLogLimitMenu] = useState(false);
+  const logLimitRef = useRef(1000);
+  const logLimitMenuRef = useRef<HTMLDivElement>(null);
+  const logsPausedRef = useRef(false);
+  const logBufferRef = useRef<LogLine[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  // Track the newest entry we've displayed. Timestamp is the primary cursor
+  // because server ids reset to 1 when the server restarts; id is only a
+  // tiebreaker for entries that share a timestamp (same ingest batch).
+  const lastLogTsRef = useRef(0);
+  const lastLogIdRef = useRef(0);
+  const esRef = useRef<EventSource | null>(null);
 
   const COMMON_COMMANDS = [
     'status', 'stats', 'users', 'maps', 'changelevel', 'ds_workshop_changelevel', 
@@ -226,6 +269,91 @@ export default function App() {
   useEffect(() => {
     consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [consoleHistory]);
+
+  // Open an SSE log stream while the Logs tab is active and a token is available.
+  // EventSource auto-reconnects on transient errors and replays via Last-Event-ID,
+  // so the server only sends entries we haven't seen.
+  useEffect(() => {
+    if (activeTab !== 'logs' || !isConnected || !logSignature || !logServerAddr) {
+      return;
+    }
+
+    setLogs([]);
+    logBufferRef.current = [];
+    setPausedCount(0);
+    setLogsPaused(false);
+    logsPausedRef.current = false;
+    lastLogTsRef.current = 0;
+    lastLogIdRef.current = 0;
+    setSseStatus('connecting');
+
+    const url = `${window.location.origin}/api/logs/stream/${encodeURIComponent(logServerAddr)}?token=${logSignature}&n=200`;
+    const es = new EventSource(url);
+    esRef.current = es;
+
+    es.onopen = () => {
+      setSseStatus('open');
+    };
+    es.onerror = () => {
+      // EventSource retries automatically; reflect the interrupted state.
+      setSseStatus('error');
+    };
+    es.addEventListener('log', (event) => {
+      try {
+        const data = JSON.parse((event as MessageEvent).data) as { id: number; ts: number; line: string };
+        // Skip anything we've already shown: older timestamp, or same timestamp
+        // with an id we've already passed. New logs after a server restart carry
+        // a later timestamp (ids reset), so they still get through.
+        if (
+          data.ts < lastLogTsRef.current ||
+          (data.ts === lastLogTsRef.current && data.id <= lastLogIdRef.current)
+        ) {
+          return;
+        }
+        lastLogTsRef.current = data.ts;
+        lastLogIdRef.current = data.id;
+        const entry: LogLine = { id: data.id, timestamp: new Date(data.ts), line: data.line };
+        if (logsPausedRef.current) {
+          // Paused: keep collecting into the buffer (capped like the view), but
+          // count every log received while paused regardless of the buffer cap.
+          logBufferRef.current.push(entry);
+          if (logBufferRef.current.length > logLimitRef.current) {
+            logBufferRef.current.splice(0, logBufferRef.current.length - logLimitRef.current);
+          }
+          setPausedCount(prev => prev + 1);
+        } else {
+          setLogs(prev => [...prev, entry].slice(-logLimitRef.current));
+        }
+      } catch {
+        // Ignore malformed frames.
+      }
+    });
+
+    return () => {
+      es.close();
+      esRef.current = null;
+      setSseStatus('idle');
+    };
+  }, [activeTab, isConnected, logSignature, logServerAddr]);
+
+  // Auto-scroll to the newest log line (same approach as the Console tab).
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
+
+  // Close the log-limit dropdown when clicking outside it.
+  useEffect(() => {
+    if (!showLogLimitMenu) {
+      return;
+    }
+    const handleOutside = (e: MouseEvent) => {
+      if (logLimitMenuRef.current && !logLimitMenuRef.current.contains(e.target as Node)) {
+        setShowLogLimitMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [showLogLimitMenu]);
 
   useEffect(() => {
     if (!isExecuting && isConnected && activeTab === 'console') {
@@ -480,6 +608,8 @@ export default function App() {
       if (data.success) {
         setIsConnected(true);
         setShowConfig(false);
+        setLogSignature(data.signature ?? null);
+        setLogServerAddr(data.serverAddr ?? `${sanitized.host}:${sanitized.port}`);
         addLog('response', 'Successfully established connection to server ' + sanitized.host);
         fetchStatus();
         void syncMaps(true);
@@ -631,6 +761,69 @@ export default function App() {
     setShowConfig(true);
     setConfigEdited(false);
     setHasAutoConnectAttempted(false);
+    if (esRef.current) {
+      esRef.current.close();
+      esRef.current = null;
+    }
+    setLogs([]);
+    logBufferRef.current = [];
+    setPausedCount(0);
+    setLogsPaused(false);
+    logsPausedRef.current = false;
+    setLogSignature(null);
+    setLogServerAddr(null);
+    setSseStatus('idle');
+  };
+
+  // Clear the displayed logs and any buffered-while-paused logs.
+  const clearLogs = () => {
+    setLogs([]);
+    logBufferRef.current = [];
+    setPausedCount(0);
+  };
+
+  // Toggle the live view. Pausing freezes the list (logs keep collecting in the
+  // buffer); resuming flushes the buffer into the view.
+  const toggleLogsPaused = () => {
+    if (logsPausedRef.current) {
+      logsPausedRef.current = false;
+      setLogsPaused(false);
+      const buffered = logBufferRef.current;
+      logBufferRef.current = [];
+      setPausedCount(0);
+      if (buffered.length > 0) {
+        setLogs(prev => [...prev, ...buffered].slice(-logLimitRef.current));
+      }
+    } else {
+      logsPausedRef.current = true;
+      setLogsPaused(true);
+    }
+  };
+
+  // Change how many log lines are kept. Apply the new cap to the current view
+  // and buffer right away (Infinity = unlimited, which never trims).
+  const handleLogLimitChange = (limit: number) => {
+    logLimitRef.current = limit;
+    setLogLimit(limit);
+    setLogs(prev => (prev.length > limit ? prev.slice(-limit) : prev));
+    if (logBufferRef.current.length > limit) {
+      logBufferRef.current.splice(0, logBufferRef.current.length - limit);
+    }
+  };
+
+  // The server.cfg line that points a CS2 server at this app's ingest endpoint.
+  // Built from the current origin and the HMAC signature for this server.
+  const logsIngestCommand = logSignature
+    ? `logaddress_add_http "${window.location.origin}/api/logs/ingest/${logSignature}"`
+    : '';
+
+  const copyIngestCommand = () => {
+    navigator.clipboard?.writeText(logsIngestCommand)
+      .then(() => {
+        setCopiedIngest(true);
+        window.setTimeout(() => setCopiedIngest(false), 1500);
+      })
+      .catch(() => {});
   };
 
   return (
@@ -837,6 +1030,7 @@ export default function App() {
             {[
               { id: 'dashboard', icon: LayoutDashboard, label: 'Status' },
               { id: 'console', icon: Terminal, label: 'Console' },
+              { id: 'logs', icon: ScrollText, label: 'Logs' },
               { id: 'players', icon: Users, label: 'Players' },
               { id: 'maps', icon: MapIcon, label: 'Maps' },
               { id: 'gamemodes', icon: Zap, label: 'Modes' },
@@ -1516,8 +1710,158 @@ export default function App() {
               </motion.div>
             )}
 
+            {activeTab === 'logs' && (
+              <motion.div
+                key="logs"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                className="flex-1 flex flex-col overflow-hidden"
+              >
+                {/* Logs Header */}
+                <div className="h-14 border-b border-cs-border bg-cs-bg-panel px-6 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-3">
+                    <ScrollText className="w-4 h-4 text-cs-yellow" />
+                    <h2 className="text-sm font-bold tracking-wide">Live Server Logs</h2>
+                    {/* SSE connection status */}
+                    {(() => {
+                      const meta =
+                        sseStatus === 'open'
+                          ? { color: 'text-cs-green', dot: 'bg-cs-green', label: 'Live', pulse: true }
+                          : sseStatus === 'connecting'
+                          ? { color: 'text-cs-yellow', dot: 'bg-cs-yellow', label: 'Connecting…', pulse: true }
+                          : sseStatus === 'error'
+                          ? { color: 'text-cs-red', dot: 'bg-cs-red', label: 'Reconnecting…', pulse: true }
+                          : { color: 'text-cs-muted', dot: 'bg-cs-muted', label: 'Idle', pulse: false };
+                      return (
+                        <span className={`flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase ${meta.color}`}>
+                          <span className={`w-2 h-2 rounded-full ${meta.dot} ${meta.pulse ? 'animate-pulse' : ''}`}></span>
+                          {meta.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div ref={logLimitMenuRef} className="relative flex items-center gap-1.5">
+                      <span className="text-[10px] text-cs-muted/60 tracking-widest uppercase hidden md:inline">Keep</span>
+                      <button
+                        onClick={() => setShowLogLimitMenu(v => !v)}
+                        title="Max log lines to keep in view"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-widest uppercase border border-cs-border bg-cs-bg-main text-cs-muted hover:text-white hover:bg-white/5 transition-colors"
+                      >
+                        {logLimit === Infinity ? 'Unlimited' : logLimit}
+                        <ChevronDown className={`w-3 h-3 transition-transform ${showLogLimitMenu ? 'rotate-180' : ''}`} />
+                      </button>
+                      <AnimatePresence>
+                        {showLogLimitMenu && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -6, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -6, scale: 0.95 }}
+                            className="absolute right-0 top-full mt-2 w-36 bg-cs-bg-panel border border-cs-border rounded-lg shadow-xl z-[100] overflow-hidden"
+                          >
+                            <div className="p-2 border-b border-cs-border">
+                              <p className="text-[9px] uppercase tracking-widest text-cs-muted font-bold px-2 py-1">Lines kept</p>
+                            </div>
+                            <div className="p-1">
+                              {LOG_LIMIT_OPTIONS.map((opt) => (
+                                <button
+                                  key={opt.label}
+                                  onClick={() => {
+                                    handleLogLimitChange(opt.value);
+                                    setShowLogLimitMenu(false);
+                                  }}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded text-xs font-medium transition-colors ${logLimit === opt.value ? 'bg-cs-yellow/10 text-cs-yellow' : 'text-cs-muted hover:bg-white/5 hover:text-white'}`}
+                                >
+                                  {opt.label}
+                                  {logLimit === opt.value && <CheckCircle2 className="w-3 h-3" />}
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    <button
+                      onClick={toggleLogsPaused}
+                      title={logsPaused ? 'Resume live updates' : 'Pause live updates (keep collecting)'}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-widest uppercase border transition-colors ${
+                        logsPaused
+                          ? 'border-cs-yellow/30 bg-cs-yellow/10 text-cs-yellow'
+                          : 'border-cs-border bg-cs-bg-main text-cs-muted hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {logsPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                      {logsPaused ? `Resume${pausedCount > 0 ? ` (${pausedCount})` : ''}` : 'Pause'}
+                    </button>
+                    <button
+                      onClick={clearLogs}
+                      title="Clear logs"
+                      className="p-1.5 rounded text-cs-muted hover:text-cs-red hover:bg-cs-red/10 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Log Stream */}
+                <div className="flex-1 p-6 font-mono text-[13px] leading-relaxed overflow-y-auto custom-scrollbar text-cs-text">
+                  {!isConnected ? (
+                    <div className="h-full flex flex-col items-center justify-center text-cs-muted gap-2">
+                      <ScrollText className="w-8 h-8 opacity-30" />
+                      <p className="text-xs tracking-wide">Connect to a server to view logs.</p>
+                    </div>
+                  ) : !logSignature ? (
+                    <div className="h-full flex flex-col items-center justify-center text-cs-muted gap-2 text-center px-6">
+                      <AlertTriangle className="w-8 h-8 opacity-40 text-cs-yellow" />
+                      <p className="text-xs tracking-wide">Log streaming is not enabled on the server.</p>
+                      <p className="text-[10px] text-cs-muted/60">Set <span className="font-bold">LOG_INGEST_SECRET</span> and point your server at <span className="font-bold">logaddress_add_http</span>.</p>
+                    </div>
+                  ) : logs.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-cs-muted gap-5 px-6">
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin opacity-40" />
+                        <p className="text-xs tracking-wide">Waiting for incoming logs…</p>
+                      </div>
+                      <div className="max-w-2xl w-full bg-cs-bg-panel border border-cs-border rounded-lg p-4 text-left">
+                        <p className="text-[11px] text-cs-muted/80 leading-relaxed mb-3">
+                          Add this to your <span className="font-bold text-cs-text/80">server.cfg</span> (or run it in the console) to forward logs here via the <span className="font-bold text-cs-text/80">logaddress_add_http</span> option:
+                        </p>
+                        <div className="flex items-stretch gap-2">
+                          <code className="flex-1 bg-black/30 border border-cs-border rounded px-3 py-2 text-[11px] text-cs-text/90 font-mono break-all select-all">
+                            {logsIngestCommand}
+                          </code>
+                          <button
+                            onClick={copyIngestCommand}
+                            title="Copy to clipboard"
+                            className="shrink-0 flex items-center justify-center px-3 rounded border border-cs-border text-cs-muted hover:text-white hover:bg-white/5 transition-colors"
+                          >
+                            {copiedIngest ? <Check className="w-3.5 h-3.5 text-cs-green" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-0.5">
+                      {logs.map((entry) => (
+                        <div key={`${entry.timestamp.getTime()}-${entry.id}`} className="flex gap-4 group">
+                          <span className="text-cs-muted/30 text-[10px] mt-0.5 min-w-[65px] hidden sm:block">
+                            [{entry.timestamp.toLocaleTimeString([], { hour12: false })}]
+                          </span>
+                          <div className="flex-1 whitespace-pre-wrap break-words text-cs-text/90">
+                            {entry.line}
+                          </div>
+                        </div>
+                      ))}
+                      <div ref={logsEndRef} />
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             {activeTab === 'players' && (
-              <motion.div 
+              <motion.div
                 key="players"
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
