@@ -74,7 +74,7 @@ export default function SelectMenu<T>({
   return (
     <div ref={ref} className={`relative ${className}`}>
       {beforeTrigger}
-      {trigger({ open, toggle: () => setOpen(o => !o) })}
+      {trigger({ open, toggle: () => setOpen((o) => !o) })}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -84,7 +84,9 @@ export default function SelectMenu<T>({
             className={`absolute right-0 ${positionClass} ${widthClass} bg-cs-bg-panel border border-cs-border rounded-lg shadow-xl z-[100] overflow-hidden`}
           >
             <div className="p-2 border-b border-cs-border">
-              <p className="text-[9px] uppercase tracking-widest text-cs-muted font-bold px-2 py-1">{heading}</p>
+              <p className="text-[9px] uppercase tracking-widest text-cs-muted font-bold px-2 py-1">
+                {heading}
+              </p>
             </div>
             <div className="p-1">
               {options.map((option) => {

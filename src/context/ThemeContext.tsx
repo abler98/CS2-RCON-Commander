@@ -17,14 +17,14 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     const savedThemeId = localStorage.getItem('theme');
-    return THEMES.find(t => t.id === savedThemeId) ?? THEMES[0];
+    return THEMES.find((t) => t.id === savedThemeId) ?? THEMES[0];
   });
 
   useEffect(() => {
     localStorage.setItem('theme', theme.id);
     // Apply theme to body and root for global consistency
     const applyTheme = () => {
-      THEMES.forEach(t => {
+      THEMES.forEach((t) => {
         if (t.class) {
           document.body.classList.remove(t.class);
           document.documentElement.classList.remove(t.class);

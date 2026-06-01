@@ -97,7 +97,11 @@ export function useLogs({
     };
     es.addEventListener('log', (event) => {
       try {
-        const data = JSON.parse((event as MessageEvent).data) as { id: number; ts: number; line: string };
+        const data = JSON.parse((event as MessageEvent).data) as {
+          id: number;
+          ts: number;
+          line: string;
+        };
         // Skip anything we've already shown: older timestamp, or same timestamp
         // with an id we've already passed. New logs after a server restart carry
         // a later timestamp (ids reset), so they still get through.
@@ -117,9 +121,9 @@ export function useLogs({
           if (logBufferRef.current.length > logLimitRef.current) {
             logBufferRef.current.splice(0, logBufferRef.current.length - logLimitRef.current);
           }
-          setPausedCount(prev => prev + 1);
+          setPausedCount((prev) => prev + 1);
         } else {
-          setLogs(prev => [...prev, entry].slice(-logLimitRef.current));
+          setLogs((prev) => [...prev, entry].slice(-logLimitRef.current));
         }
       } catch {
         // Ignore malformed frames.
@@ -198,7 +202,7 @@ export function useLogs({
       logBufferRef.current = [];
       setPausedCount(0);
       if (buffered.length > 0) {
-        setLogs(prev => [...prev, ...buffered].slice(-logLimitRef.current));
+        setLogs((prev) => [...prev, ...buffered].slice(-logLimitRef.current));
       }
     } else {
       logsPausedRef.current = true;
@@ -211,14 +215,15 @@ export function useLogs({
   const handleLogLimitChange = (limit: number) => {
     logLimitRef.current = limit;
     setLogLimit(limit);
-    setLogs(prev => (prev.length > limit ? prev.slice(-limit) : prev));
+    setLogs((prev) => (prev.length > limit ? prev.slice(-limit) : prev));
     if (logBufferRef.current.length > limit) {
       logBufferRef.current.splice(0, logBufferRef.current.length - limit);
     }
   };
 
   const copyIngestCommand = () => {
-    navigator.clipboard?.writeText(logsIngestCommand)
+    navigator.clipboard
+      ?.writeText(logsIngestCommand)
       .then(() => {
         setCopiedIngest(true);
         window.setTimeout(() => setCopiedIngest(false), 1500);

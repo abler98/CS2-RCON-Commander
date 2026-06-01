@@ -6,7 +6,13 @@
 import { motion } from 'motion/react';
 import type { ReactNode } from 'react';
 
-export default function TabPanel({ className, children }: { className?: string; children: ReactNode }) {
+export default function TabPanel({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }}

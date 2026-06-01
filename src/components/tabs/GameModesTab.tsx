@@ -10,9 +10,7 @@ import { useStatusContext } from '../../context/StatusContext';
 import { useConfirmModal } from '../../context/ConfirmModalContext';
 
 export default function GameModesTab() {
-  const {
-    executeAction,
-  } = useRconContext();
+  const { executeAction } = useRconContext();
   const { serverInfo } = useStatusContext();
   const { confirmAction } = useConfirmModal();
 
@@ -29,13 +27,27 @@ export default function GameModesTab() {
         {GAME_MODES.map((mode) => {
           const isActive = serverInfo?.gameType === mode.type && serverInfo?.gameMode === mode.mode;
           return (
-            <div 
+            <div
               key={mode.name}
-              onClick={() => confirmAction('gamemode', `Change Mode to ${mode.name}?`, `The match will restart with ${mode.name} rules.`, () => executeAction('gamemode', `${mode.type} ${mode.mode}`, serverInfo?.map || 'de_dust2'))}
+              onClick={() =>
+                confirmAction(
+                  'gamemode',
+                  `Change Mode to ${mode.name}?`,
+                  `The match will restart with ${mode.name} rules.`,
+                  () =>
+                    executeAction(
+                      'gamemode',
+                      `${mode.type} ${mode.mode}`,
+                      serverInfo?.map || 'de_dust2',
+                    ),
+                )
+              }
               className={`flex items-center justify-between p-4 bg-cs-bg-panel border border-cs-border rounded-lg cursor-pointer transition-all hover:bg-white/5 ${isActive ? 'border-cs-blue/50 ring-1 ring-cs-blue/30' : ''}`}
             >
               <div className="flex items-center gap-4">
-                <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-cs-blue animate-pulse' : 'bg-cs-muted/30'}`} />
+                <div
+                  className={`w-2 h-2 rounded-full ${isActive ? 'bg-cs-blue animate-pulse' : 'bg-cs-muted/30'}`}
+                />
                 <div>
                   <div className="flex items-center gap-3">
                     <h3 className="text-sm font-bold text-cs-yellow leading-tight">{mode.name}</h3>
@@ -44,7 +56,9 @@ export default function GameModesTab() {
                       <span>M:{mode.mode}</span>
                     </div>
                   </div>
-                  <p className="text-[10px] text-cs-muted mt-0.5">{(mode as any).desc || 'Standard ruleset'}</p>
+                  <p className="text-[10px] text-cs-muted mt-0.5">
+                    {(mode as any).desc || 'Standard ruleset'}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -54,24 +68,29 @@ export default function GameModesTab() {
                     Active Mode
                   </span>
                 ) : (
-                  <span className="text-[9px] font-bold text-cs-muted/40 uppercase tracking-widest">Switch</span>
+                  <span className="text-[9px] font-bold text-cs-muted/40 uppercase tracking-widest">
+                    Switch
+                  </span>
                 )}
-                <ChevronRight className={`w-4 h-4 transition-transform ${isActive ? 'text-cs-blue translate-x-1' : 'text-cs-muted/20'}`} />
+                <ChevronRight
+                  className={`w-4 h-4 transition-transform ${isActive ? 'text-cs-blue translate-x-1' : 'text-cs-muted/20'}`}
+                />
               </div>
             </div>
           );
         })}
       </div>
-      
+
       <div className="mt-8 p-6 bg-cs-bg-panel border border-cs-border rounded-lg">
         <div className="flex items-center gap-3 mb-4">
           <Shield className="w-5 h-5 text-cs-yellow" />
           <h4 className="text-xs font-bold uppercase tracking-widest">Protocol Reminder</h4>
         </div>
         <p className="text-xs text-cs-muted leading-relaxed max-w-2xl">
-          Changing the engagement ruleset (Game Mode) typically requires a map reload. The system will automatically trigger 
-          a reload of the current theater (<span className="text-cs-yellow font-bold uppercase">{serverInfo?.map}</span>) 
-          after updating server variables to ensure all mechanics are initialized correctly.
+          Changing the engagement ruleset (Game Mode) typically requires a map reload. The system
+          will automatically trigger a reload of the current theater (
+          <span className="text-cs-yellow font-bold uppercase">{serverInfo?.map}</span>) after
+          updating server variables to ensure all mechanics are initialized correctly.
         </p>
       </div>
     </>

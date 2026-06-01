@@ -31,7 +31,9 @@ export default function MapGridCard({
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
-              (e.target as HTMLImageElement).parentElement?.querySelector('.fallback')?.classList.remove('hidden');
+              (e.target as HTMLImageElement).parentElement
+                ?.querySelector('.fallback')
+                ?.classList.remove('hidden');
             }}
           />
         ) : (
@@ -48,15 +50,21 @@ export default function MapGridCard({
 
         <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
           <div className="flex gap-1 flex-wrap">
-            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${map.type === 'workshop' ? 'bg-cs-blue/80 text-white' : 'bg-white/10 text-white border border-white/10'}`}>
+            <span
+              className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase ${map.type === 'workshop' ? 'bg-cs-blue/80 text-white' : 'bg-white/10 text-white border border-white/10'}`}
+            >
               {map.type === 'workshop' ? 'Workshop' : 'Default'}
             </span>
             {map.tag && (
-              <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase shadow-sm ${
-                map.tag === 'Defusal' ? 'bg-cs-red/80 text-white' :
-                map.tag === 'Hostage Rescue' ? 'bg-cs-green/80 text-white' :
-                'bg-cs-purple/80 text-white'
-              }`}>
+              <span
+                className={`text-[8px] font-bold px-1.5 py-0.5 rounded tracking-widest uppercase shadow-sm ${
+                  map.tag === 'Defusal'
+                    ? 'bg-cs-red/80 text-white'
+                    : map.tag === 'Hostage Rescue'
+                      ? 'bg-cs-green/80 text-white'
+                      : 'bg-cs-purple/80 text-white'
+                }`}
+              >
                 {map.tag}
               </span>
             )}

@@ -38,14 +38,14 @@ export function useRcon() {
         if (data.host && data.password) {
           const newConfig = {
             host: data.host,
-            port: data.port || "27015",
-            password: data.password
+            port: data.port || '27015',
+            password: data.password,
           };
           setConfig(newConfig);
           setShowConfig(false);
         }
       } catch (err) {
-        console.error("Failed to fetch environment config", err);
+        console.error('Failed to fetch environment config', err);
       }
     };
     fetchEnvConfig();
@@ -56,14 +56,28 @@ export function useRcon() {
   }, [config]);
 
   useEffect(() => {
-    if (!isConnected && !isConnecting && !hasAutoConnectAttempted && !configEdited && config.host && config.password) {
+    if (
+      !isConnected &&
+      !isConnecting &&
+      !hasAutoConnectAttempted &&
+      !configEdited &&
+      config.host &&
+      config.password
+    ) {
       setHasAutoConnectAttempted(true);
       testConnection();
     }
-  }, [isConnected, isConnecting, hasAutoConnectAttempted, configEdited, config.host, config.password]);
+  }, [
+    isConnected,
+    isConnecting,
+    hasAutoConnectAttempted,
+    configEdited,
+    config.host,
+    config.password,
+  ]);
 
   const addLog = (type: 'command' | 'response' | 'error', content: string) => {
-    setConsoleHistory(prev => [...prev, { type, content, timestamp: new Date() }].slice(-100));
+    setConsoleHistory((prev) => [...prev, { type, content, timestamp: new Date() }].slice(-100));
   };
 
   const executeAction = async (action: string, value: string = '', target: string = '') => {
@@ -80,7 +94,7 @@ export function useRcon() {
           password: btoa(unescape(encodeURIComponent(config.password))),
           action,
           value,
-          target
+          target,
         }),
       });
       const data = await res.json();
@@ -111,7 +125,9 @@ export function useRcon() {
     // Check for LAN IP
     const isPrivateIP = sanitized.host.match(/^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/);
     if (isPrivateIP && window.location.hostname.includes('run.app')) {
-      setConnectionError("Detected Private LAN IP. The cloud-based preview cannot connect to local network addresses. Please run this app locally via Docker.");
+      setConnectionError(
+        'Detected Private LAN IP. The cloud-based preview cannot connect to local network addresses. Please run this app locally via Docker.',
+      );
       setIsConnecting(false);
       return;
     }
@@ -122,7 +138,7 @@ export function useRcon() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...sanitized,
-          password: btoa(unescape(encodeURIComponent(config.password)))
+          password: btoa(unescape(encodeURIComponent(config.password))),
         }),
       });
       const data = await res.json();
@@ -137,7 +153,9 @@ export function useRcon() {
         addLog('error', 'Authentication failed: ' + data.error);
       }
     } catch (err: any) {
-      setConnectionError('Network failure: Unable to reach the backend gateway. Check your internet connection.');
+      setConnectionError(
+        'Network failure: Unable to reach the backend gateway. Check your internet connection.',
+      );
       addLog('error', 'Network failure: ' + err.message);
     } finally {
       setIsConnecting(false);
@@ -164,7 +182,7 @@ export function useRcon() {
         body: JSON.stringify({
           ...sanitized,
           password: btoa(unescape(encodeURIComponent(config.password))),
-          command: cmd
+          command: cmd,
         }),
       });
       const data = await res.json();

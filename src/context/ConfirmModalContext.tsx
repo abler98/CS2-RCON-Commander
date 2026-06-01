@@ -14,7 +14,7 @@ interface ConfirmModalContextValue {
     title: string,
     description: string,
     action: () => void,
-    data?: any
+    data?: any,
   ) => void;
 }
 
@@ -34,7 +34,7 @@ export function ConfirmModalProvider({ children }: { children: ReactNode }) {
     title: string,
     description: string,
     action: () => void,
-    data?: any
+    data?: any,
   ) => {
     setConfirmModal({
       show: true,
@@ -43,9 +43,9 @@ export function ConfirmModalProvider({ children }: { children: ReactNode }) {
       description,
       action: () => {
         action();
-        setConfirmModal(prev => ({ ...prev, show: false }));
+        setConfirmModal((prev) => ({ ...prev, show: false }));
       },
-      data
+      data,
     });
   };
 

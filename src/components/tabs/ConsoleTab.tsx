@@ -9,12 +9,7 @@ import { useRconContext } from '../../context/RconContext';
 import { COMMON_COMMANDS } from '../../constants/commands';
 
 export default function ConsoleTab() {
-  const {
-    isConnected,
-    consoleHistory,
-    isExecuting,
-    executeCommand,
-  } = useRconContext();
+  const { isConnected, consoleHistory, isExecuting, executeCommand } = useRconContext();
 
   // The Console tab's input lifecycle: the command field, the up-arrow recall
   // history (persisted), the autocomplete dropdown, and the auto-scroll /
@@ -33,7 +28,9 @@ export default function ConsoleTab() {
   const commandInputRef = useRef<HTMLInputElement>(null);
 
   const autocompleteSuggestions = commandInput.trim()
-    ? COMMON_COMMANDS.filter(cmd => cmd.toLowerCase().startsWith(commandInput.toLowerCase()) && cmd !== commandInput)
+    ? COMMON_COMMANDS.filter(
+        (cmd) => cmd.toLowerCase().startsWith(commandInput.toLowerCase()) && cmd !== commandInput,
+      )
     : [];
 
   useEffect(() => {
@@ -58,8 +55,8 @@ export default function ConsoleTab() {
     if (!cmd.trim() || isExecuting) {
       return;
     }
-    setCommandHistory(prev => {
-      const newHistory = [cmd.trim(), ...prev.filter(h => h !== cmd.trim())].slice(0, 50);
+    setCommandHistory((prev) => {
+      const newHistory = [cmd.trim(), ...prev.filter((h) => h !== cmd.trim())].slice(0, 50);
       return newHistory;
     });
     setHistoryIndex(-1);
@@ -113,7 +110,13 @@ export default function ConsoleTab() {
       {/* RCON Input Bar */}
       <div className="h-14 border-t border-cs-border bg-cs-bg-panel px-4 flex items-center gap-3 shrink-0">
         <span className="text-cs-yellow font-mono font-bold text-xs">RCON</span>
-        <form onSubmit={(e) => { e.preventDefault(); submitCommand(); }} className="flex-1 flex items-center gap-3">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitCommand();
+          }}
+          className="flex-1 flex items-center gap-3"
+        >
           <div className="flex-1 relative">
             <input
               ref={commandInputRef}
@@ -135,7 +138,9 @@ export default function ConsoleTab() {
                 } else if (e.key === 'ArrowUp') {
                   e.preventDefault();
                   if (showAutocomplete && autocompleteSuggestions.length > 0) {
-                    setAutocompleteIndex(prev => (prev > 0 ? prev - 1 : autocompleteSuggestions.length - 1));
+                    setAutocompleteIndex((prev) =>
+                      prev > 0 ? prev - 1 : autocompleteSuggestions.length - 1,
+                    );
                   } else if (historyIndex < commandHistory.length - 1) {
                     const newIndex = historyIndex + 1;
                     setHistoryIndex(newIndex);
@@ -144,7 +149,9 @@ export default function ConsoleTab() {
                 } else if (e.key === 'ArrowDown') {
                   e.preventDefault();
                   if (showAutocomplete && autocompleteSuggestions.length > 0) {
-                    setAutocompleteIndex(prev => (prev < autocompleteSuggestions.length - 1 ? prev + 1 : 0));
+                    setAutocompleteIndex((prev) =>
+                      prev < autocompleteSuggestions.length - 1 ? prev + 1 : 0,
+                    );
                   } else if (historyIndex > 0) {
                     const newIndex = historyIndex - 1;
                     setHistoryIndex(newIndex);
@@ -161,7 +168,11 @@ export default function ConsoleTab() {
                 // Delay hiding to allow click on suggestion
                 setTimeout(() => setShowAutocomplete(false), 200);
               }}
-              placeholder={isConnected ? "Type command (e.g. status, changelevel, kick)..." : "Initialize connection to send commands..."}
+              placeholder={
+                isConnected
+                  ? 'Type command (e.g. status, changelevel, kick)...'
+                  : 'Initialize connection to send commands...'
+              }
               disabled={!isConnected || isExecuting}
               className="w-full bg-transparent border-none focus:ring-0 text-sm font-mono placeholder:text-cs-muted/40 outline-none"
             />
@@ -169,7 +180,9 @@ export default function ConsoleTab() {
             {showAutocomplete && autocompleteSuggestions.length > 0 && (
               <div className="absolute bottom-full left-0 mb-2 w-64 bg-cs-bg-panel border border-cs-border rounded-lg shadow-xl z-50 overflow-hidden">
                 <div className="p-2 border-b border-cs-border bg-black/20 flex justify-between items-center">
-                  <span className="text-[9px] font-bold text-cs-muted uppercase tracking-widest">Suggestions</span>
+                  <span className="text-[9px] font-bold text-cs-muted uppercase tracking-widest">
+                    Suggestions
+                  </span>
                   <span className="text-[8px] text-cs-muted/50 font-mono">TAB to select</span>
                 </div>
                 <div className="max-h-48 overflow-y-auto custom-scrollbar">
@@ -191,7 +204,7 @@ export default function ConsoleTab() {
             )}
           </div>
           <div className="flex items-center gap-2 text-[10px] text-cs-muted uppercase font-bold">
-            {isExecuting ? <Loader2 className="w-3 h-3 animate-spin" /> : "ENTER"}
+            {isExecuting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'ENTER'}
           </div>
         </form>
       </div>

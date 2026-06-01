@@ -9,21 +9,15 @@ import { useRconContext } from '../../context/RconContext';
 import { useStatusContext } from '../../context/StatusContext';
 
 export default function DashboardTab() {
-  const {
-    config,
-    isConnected,
-  } = useRconContext();
-  const {
-    serverInfo,
-    fetchStatus,
-  } = useStatusContext();
+  const { config, isConnected } = useRconContext();
+  const { serverInfo, fetchStatus } = useStatusContext();
 
   return (
     <>
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-2xl font-bold tracking-tight">Server Status</h2>
         <div className="flex gap-2">
-          <button 
+          <button
             onClick={fetchStatus}
             className="p-2 bg-cs-bg-panel border border-cs-border hover:bg-white/5 rounded text-cs-muted hover:text-white transition-colors"
             title="Force Refresh"
@@ -43,35 +37,41 @@ export default function DashboardTab() {
             <span className="text-[10px] font-bold tracking-widest">Steam Identity</span>
           </div>
           <div className="space-y-4">
-            {serverInfo?.steamid ? (() => {
-              const parsed = parseSteamId(serverInfo.steamid);
-              if (parsed) {
-                return (
-                  <>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[9px] font-bold text-cs-muted uppercase tracking-wider">SteamID3 / GSLT</span>
-                      <div className="font-mono text-sm text-cs-yellow">{parsed.steamId3}</div>
-                      <div className="flex flex-wrap gap-1.5 mt-1">
-                        <span className="text-[8px] px-1.5 py-0.5 bg-cs-red/10 border border-cs-red/20 text-cs-red font-bold rounded">
-                          {parsed.type === 'G' ? 'Persistent Server' : 'Anonymous'}
+            {serverInfo?.steamid ? (
+              (() => {
+                const parsed = parseSteamId(serverInfo.steamid);
+                if (parsed) {
+                  return (
+                    <>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[9px] font-bold text-cs-muted uppercase tracking-wider">
+                          SteamID3 / GSLT
                         </span>
-                        <span className="text-[8px] px-1.5 py-0.5 bg-cs-blue/10 border border-cs-blue/20 text-cs-blue font-bold rounded">
-                          Universe: {parsed.universe === '1' ? 'Public' : parsed.universe}
-                        </span>
-                        <span className="text-[8px] px-1.5 py-0.5 bg-white/5 border border-white/10 text-cs-muted font-mono rounded">
-                          ID: {parsed.accountId}
-                        </span>
+                        <div className="font-mono text-sm text-cs-yellow">{parsed.steamId3}</div>
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          <span className="text-[8px] px-1.5 py-0.5 bg-cs-red/10 border border-cs-red/20 text-cs-red font-bold rounded">
+                            {parsed.type === 'G' ? 'Persistent Server' : 'Anonymous'}
+                          </span>
+                          <span className="text-[8px] px-1.5 py-0.5 bg-cs-blue/10 border border-cs-blue/20 text-cs-blue font-bold rounded">
+                            Universe: {parsed.universe === '1' ? 'Public' : parsed.universe}
+                          </span>
+                          <span className="text-[8px] px-1.5 py-0.5 bg-white/5 border border-white/10 text-cs-muted font-mono rounded">
+                            ID: {parsed.accountId}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex flex-col gap-1 pt-2 border-t border-cs-border/50">
-                      <span className="text-[9px] font-bold text-cs-muted uppercase tracking-wider">SteamID64</span>
-                      <div className="font-mono text-sm text-white/90">{parsed.steamId64}</div>
-                    </div>
-                  </>
-                );
-              }
-              return <div className="font-mono text-sm text-cs-yellow">{serverInfo.steamid}</div>;
-            })() : (
+                      <div className="flex flex-col gap-1 pt-2 border-t border-cs-border/50">
+                        <span className="text-[9px] font-bold text-cs-muted uppercase tracking-wider">
+                          SteamID64
+                        </span>
+                        <div className="font-mono text-sm text-white/90">{parsed.steamId64}</div>
+                      </div>
+                    </>
+                  );
+                }
+                return <div className="font-mono text-sm text-cs-yellow">{serverInfo.steamid}</div>;
+              })()
+            ) : (
               <div className="font-mono text-sm text-cs-muted">Public Identifier N/A</div>
             )}
           </div>
@@ -92,9 +92,7 @@ export default function DashboardTab() {
             <Server className="w-4 h-4 text-cs-blue" />
             <span className="text-[10px] font-bold tracking-widest">UDP/IP Interface</span>
           </div>
-          <div className="font-mono text-sm">
-            {serverInfo?.udp_ip || 'Internal Network Only'}
-          </div>
+          <div className="font-mono text-sm">{serverInfo?.udp_ip || 'Internal Network Only'}</div>
         </div>
 
         <div className="bg-cs-bg-panel border border-cs-border rounded-lg p-6 shadow-sm">
@@ -128,21 +126,29 @@ export default function DashboardTab() {
           </div>
           <div className="p-6 flex justify-between items-center">
             <span className="text-[11px] text-cs-muted font-bold">Maximum Capacity</span>
-            <span className="text-xl font-bold text-cs-muted">{serverInfo?.maxPlayers || 'N/A'}</span>
+            <span className="text-xl font-bold text-cs-muted">
+              {serverInfo?.maxPlayers || 'N/A'}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Raw Context Output */}
       <div className="mt-8">
-          <h3 className="text-[10px] font-bold text-cs-muted tracking-[0.2em] mb-4">Diagnostics Console</h3>
-          <div className="bg-black/40 border border-cs-border rounded-lg p-4 font-mono text-[11px] text-cs-muted leading-relaxed max-h-48 overflow-y-auto custom-scrollbar">
-            &gt; Fetching latest telemetry from node...<br/>
-            &gt; Server: {config.host}:{config.port}<br/>
-            &gt; Verified: {isConnected ? 'YES' : 'NO'}<br/>
-            &gt; Last Response: {new Date().toLocaleTimeString()}<br/>
-            &gt; All subsystems green.
-          </div>
+        <h3 className="text-[10px] font-bold text-cs-muted tracking-[0.2em] mb-4">
+          Diagnostics Console
+        </h3>
+        <div className="bg-black/40 border border-cs-border rounded-lg p-4 font-mono text-[11px] text-cs-muted leading-relaxed max-h-48 overflow-y-auto custom-scrollbar">
+          &gt; Fetching latest telemetry from node...
+          <br />
+          &gt; Server: {config.host}:{config.port}
+          <br />
+          &gt; Verified: {isConnected ? 'YES' : 'NO'}
+          <br />
+          &gt; Last Response: {new Date().toLocaleTimeString()}
+          <br />
+          &gt; All subsystems green.
+        </div>
       </div>
     </>
   );

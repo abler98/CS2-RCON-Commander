@@ -23,14 +23,14 @@ export default function ConnectionModal() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={() => isConnected && setShowConfig(false)}
         className="absolute inset-0 bg-black/90 backdrop-blur-md"
       />
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -38,19 +38,23 @@ export default function ConnectionModal() {
       >
         {/* Logo Background Blur */}
         <div className="absolute -top-12 -right-12 w-48 h-48 bg-cs-yellow/5 rounded-full blur-3xl pointer-events-none" />
-        
+
         <div className="flex flex-col items-center text-center mb-8">
-          <img 
-            src="https://cdn.fastly.steamstatic.com/apps/csgo/images/csgo_react//global/cs2_icon_color_512x512.png" 
-            alt="CS2 Logo" 
+          <img
+            src="https://cdn.fastly.steamstatic.com/apps/csgo/images/csgo_react//global/cs2_icon_color_512x512.png"
+            alt="CS2 Logo"
             className="w-16 h-16 mb-4"
           />
-          <h2 className="text-2xl font-black tracking-tighter text-cs-yellow italic uppercase">CS2 RCON Commander</h2>
-          <p className="text-cs-muted text-[10px] tracking-[0.2em] mt-1 font-bold">Remote Server Authentication</p>
+          <h2 className="text-2xl font-black tracking-tighter text-cs-yellow italic uppercase">
+            CS2 RCON Commander
+          </h2>
+          <p className="text-cs-muted text-[10px] tracking-[0.2em] mt-1 font-bold">
+            Remote Server Authentication
+          </p>
         </div>
 
         {isConnected && (
-          <button 
+          <button
             onClick={() => setShowConfig(false)}
             className="absolute top-4 right-4 p-1 hover:bg-white/5 rounded text-cs-muted hover:text-white"
           >
@@ -60,7 +64,7 @@ export default function ConnectionModal() {
 
         <div className="space-y-6">
           {connectionError && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -5 }}
               animate={{ opacity: 1, y: 0 }}
               className="p-3 bg-cs-red/10 border border-cs-red/30 rounded text-[11px] text-cs-red flex gap-2"
@@ -70,9 +74,11 @@ export default function ConnectionModal() {
             </motion.div>
           )}
           <div className="space-y-1.5">
-            <label className="text-[9px] uppercase tracking-[0.2em] font-mono text-cs-muted font-bold ml-1">Server IP Address</label>
-            <input 
-              type="text" 
+            <label className="text-[9px] uppercase tracking-[0.2em] font-mono text-cs-muted font-bold ml-1">
+              Server IP Address
+            </label>
+            <input
+              type="text"
               placeholder="E.G. 127.0.0.1"
               value={config.host}
               onChange={(e) => {
@@ -84,9 +90,11 @@ export default function ConnectionModal() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[9px] uppercase tracking-[0.2em] font-mono text-cs-muted font-bold ml-1">RCON Port</label>
-            <input 
-              type="text" 
+            <label className="text-[9px] uppercase tracking-[0.2em] font-mono text-cs-muted font-bold ml-1">
+              RCON Port
+            </label>
+            <input
+              type="text"
               placeholder="27015"
               value={config.port}
               onChange={(e) => {
@@ -98,9 +106,11 @@ export default function ConnectionModal() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[9px] uppercase tracking-[0.2em] font-mono text-cs-muted font-bold ml-1">RCON Password</label>
-            <input 
-              type="password" 
+            <label className="text-[9px] uppercase tracking-[0.2em] font-mono text-cs-muted font-bold ml-1">
+              RCON Password
+            </label>
+            <input
+              type="password"
               placeholder="••••••••"
               value={config.password}
               onChange={(e) => {
@@ -113,8 +123,10 @@ export default function ConnectionModal() {
 
           {isConnected && (
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] uppercase text-cs-muted font-bold tracking-widest">Danger Zone</span>
-              <button 
+              <span className="text-[10px] uppercase text-cs-muted font-bold tracking-widest">
+                Danger Zone
+              </span>
+              <button
                 onClick={resetConfig}
                 className="text-[10px] text-cs-red font-bold hover:underline uppercase tracking-widest"
               >
@@ -123,7 +135,7 @@ export default function ConnectionModal() {
             </div>
           )}
 
-          <button 
+          <button
             onClick={testConnection}
             disabled={!config.host || !config.port || !config.password || isConnecting}
             className="w-full py-4 bg-cs-yellow hover:brightness-110 disabled:opacity-5 disabled:grayscale text-black font-black uppercase tracking-[0.2em] text-xs rounded shadow-xl transition-all active:scale-[0.98] mt-4"
@@ -133,12 +145,14 @@ export default function ConnectionModal() {
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Connecting...
               </span>
-            ) : 'Login to RCON'}
+            ) : (
+              'Login to RCON'
+            )}
           </button>
-          
+
           {isConnecting && (
             <p className="text-center mt-4">
-              <button 
+              <button
                 onClick={() => setIsConnecting(false)}
                 className="text-[10px] text-cs-muted hover:text-white uppercase font-bold tracking-widest"
               >

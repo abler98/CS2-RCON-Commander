@@ -22,12 +22,18 @@ export default function MainArea() {
     <main className="flex-1 flex flex-col bg-cs-bg-console relative overflow-hidden">
       <AnimatePresence mode="wait">
         {activeTab === 'dashboard' && (
-          <TabPanel key="dashboard" className="flex-1 p-8 flex flex-col overflow-y-auto custom-scrollbar">
+          <TabPanel
+            key="dashboard"
+            className="flex-1 p-8 flex flex-col overflow-y-auto custom-scrollbar"
+          >
             <DashboardTab />
           </TabPanel>
         )}
         {activeTab === 'actions' && (
-          <TabPanel key="actions" className="flex-1 p-8 flex flex-col overflow-y-auto custom-scrollbar">
+          <TabPanel
+            key="actions"
+            className="flex-1 p-8 flex flex-col overflow-y-auto custom-scrollbar"
+          >
             <ActionsTab />
           </TabPanel>
         )}

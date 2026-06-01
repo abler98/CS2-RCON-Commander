@@ -36,16 +36,20 @@ export function useMaps({ isConnected, config, addLog }: UseMapsParams) {
   useEffect(() => {
     const fetchAvailableThumbnails = async () => {
       try {
-        const response = await fetch('https://raw.githubusercontent.com/ggMartinez/CS2-Maps-Images/main/list.json');
+        const response = await fetch(
+          'https://raw.githubusercontent.com/ggMartinez/CS2-Maps-Images/main/list.json',
+        );
         if (response.ok) {
           const list = await response.json();
           if (Array.isArray(list)) {
             // Normalize names to lowercase and remove extensions for easier matching
-            setAvailableThumbnails(new Set(list.map(name => name.toLowerCase().replace(/\.(png|jpg|jpeg)$/, ''))));
+            setAvailableThumbnails(
+              new Set(list.map((name) => name.toLowerCase().replace(/\.(png|jpg|jpeg)$/, ''))),
+            );
           }
         }
       } catch (err) {
-        console.error("Failed to fetch thumbnail list", err);
+        console.error('Failed to fetch thumbnail list', err);
       }
     };
     fetchAvailableThumbnails();
@@ -62,7 +66,7 @@ export function useMaps({ isConnected, config, addLog }: UseMapsParams) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...sanitized,
-          password: btoa(unescape(encodeURIComponent(config.password)))
+          password: btoa(unescape(encodeURIComponent(config.password))),
         }),
       });
       const data = await res.json();
@@ -77,7 +81,7 @@ export function useMaps({ isConnected, config, addLog }: UseMapsParams) {
       }
     } catch (err: any) {
       addLog('error', `Workshop maps fetch error: ${err.message}`);
-      console.error("Failed to fetch workshop maps", err);
+      console.error('Failed to fetch workshop maps', err);
     }
   };
 
@@ -92,7 +96,7 @@ export function useMaps({ isConnected, config, addLog }: UseMapsParams) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...sanitized,
-          password: btoa(unescape(encodeURIComponent(config.password)))
+          password: btoa(unescape(encodeURIComponent(config.password))),
         }),
       });
       const data = await res.json();
@@ -109,7 +113,7 @@ export function useMaps({ isConnected, config, addLog }: UseMapsParams) {
       }
     } catch (err: any) {
       addLog('error', `Installed maps fetch error: ${err.message}`);
-      console.error("Failed to fetch installed maps", err);
+      console.error('Failed to fetch installed maps', err);
     }
   };
 
@@ -125,14 +129,20 @@ export function useMaps({ isConnected, config, addLog }: UseMapsParams) {
     }
   };
 
-  const defaultMapOptions = serverMaps.length > 0
-    ? serverMaps.filter(isValidServerMap).filter(m =>
-        !workshopMaps.some(wm =>
-          wm.id?.toLowerCase() === (m.id || m.name)?.toLowerCase() ||
-          wm.name?.toLowerCase() === (m.id || m.name)?.toLowerCase()
-        )
-      ).map(m => ({ ...m, type: 'default' as const, name: formatMapLabel(m.name || m.id) }))
-    : MAP_LIST.map(m => ({ ...m, type: 'default' as const }));
+  const defaultMapOptions =
+    serverMaps.length > 0
+      ? serverMaps
+          .filter(isValidServerMap)
+          .filter(
+            (m) =>
+              !workshopMaps.some(
+                (wm) =>
+                  wm.id?.toLowerCase() === (m.id || m.name)?.toLowerCase() ||
+                  wm.name?.toLowerCase() === (m.id || m.name)?.toLowerCase(),
+              ),
+          )
+          .map((m) => ({ ...m, type: 'default' as const, name: formatMapLabel(m.name || m.id) }))
+      : MAP_LIST.map((m) => ({ ...m, type: 'default' as const }));
 
   return {
     workshopMaps,

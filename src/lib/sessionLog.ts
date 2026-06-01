@@ -21,14 +21,14 @@ export const groupConsoleHistory = (consoleHistory: ConsoleEntry[]): any[] => {
           type: 'pair',
           command: entry.content,
           response: next.content,
-          timestamp: next.timestamp
+          timestamp: next.timestamp,
         });
         i++; // Skip next
       } else {
         grouped.push({
           type: 'command',
           content: entry.content,
-          timestamp: entry.timestamp
+          timestamp: entry.timestamp,
         });
       }
     } else {

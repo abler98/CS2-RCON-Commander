@@ -23,7 +23,10 @@ export default function AppLayout() {
   const { confirmModal } = useConfirmModal();
 
   return (
-    <div id="app-root" className={`h-screen bg-cs-bg-main flex flex-col overflow-hidden text-cs-text selection:bg-cs-yellow/20 ${theme.class}`}>
+    <div
+      id="app-root"
+      className={`h-screen bg-cs-bg-main flex flex-col overflow-hidden text-cs-text selection:bg-cs-yellow/20 ${theme.class}`}
+    >
       {/* Top Header */}
       <Header />
 
@@ -40,9 +43,7 @@ export default function AppLayout() {
       </div>
 
       {/* Connection Modal Overlay */}
-      <AnimatePresence>
-        {showConfig && <ConnectionModal />}
-      </AnimatePresence>
+      <AnimatePresence>{showConfig && <ConnectionModal />}</AnimatePresence>
 
       {/* Raw Output Modal */}
       <AnimatePresence>

@@ -31,7 +31,7 @@ export function useStatus({ isConnected, config }: UseStatusParams) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...sanitized,
-          password: btoa(unescape(encodeURIComponent(config.password)))
+          password: btoa(unescape(encodeURIComponent(config.password))),
         }),
       });
       const data = await res.json();
@@ -39,7 +39,7 @@ export function useStatus({ isConnected, config }: UseStatusParams) {
         setServerInfo(data.status);
       }
     } catch (err) {
-      console.error("Failed to fetch status", err);
+      console.error('Failed to fetch status', err);
     } finally {
       setIsFetchingStatus(false);
     }

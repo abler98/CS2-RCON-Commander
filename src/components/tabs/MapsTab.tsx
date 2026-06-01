@@ -13,10 +13,7 @@ import MapGridCard from '../maps/MapGridCard';
 import MapListRow from '../maps/MapListRow';
 
 export default function MapsTab() {
-  const {
-    executeAction,
-    executeCommand,
-  } = useRconContext();
+  const { executeAction, executeCommand } = useRconContext();
   const { serverInfo } = useStatusContext();
   const {
     workshopMaps,
@@ -42,11 +39,22 @@ export default function MapsTab() {
   // switches, so there's no fetch on mount here — the manual refresh button
   // (syncMaps) re-syncs on demand.
 
-  const filtered = buildMapList({ defaultMapOptions, workshopMaps, mapSearch, mapTagFilter, mapSortOrder });
+  const filtered = buildMapList({
+    defaultMapOptions,
+    workshopMaps,
+    mapSearch,
+    mapTagFilter,
+    mapSortOrder,
+  });
 
   // Confirm + apply a map change. The only difference between grid and list is
   // whether the confirmation warns about lost progress.
-  const handleMapChange = (map: any, hasThumb: boolean, thumbUrl: string, withProgressWarning: boolean) => {
+  const handleMapChange = (
+    map: any,
+    hasThumb: boolean,
+    thumbUrl: string,
+    withProgressWarning: boolean,
+  ) => {
     const mapName = map.name;
     const changeAction = () => {
       if (map.type === 'workshop') {
@@ -58,13 +66,16 @@ export default function MapsTab() {
     const description = withProgressWarning
       ? `The server will restart to load "${mapName}". Current progress will be lost.`
       : `The server will restart to load "${mapName}".`;
-    confirmAction('map', `Change Map to ${mapName}?`, description, changeAction, { thumb: hasThumb ? thumbUrl : null });
+    confirmAction('map', `Change Map to ${mapName}?`, description, changeAction, {
+      thumb: hasThumb ? thumbUrl : null,
+    });
   };
 
   // Per-map display values shared by both views.
   const mapDisplay = (map: any) => {
-    const isCurrent = serverInfo?.map?.toLowerCase() === map.rawName?.toLowerCase() ||
-                      serverInfo?.map?.toLowerCase() === map.id?.toLowerCase();
+    const isCurrent =
+      serverInfo?.map?.toLowerCase() === map.rawName?.toLowerCase() ||
+      serverInfo?.map?.toLowerCase() === map.id?.toLowerCase();
     const rawId = (map.rawName || map.id).toLowerCase();
     const hasThumb = availableThumbnails.has(rawId);
     const thumbUrl = thumbnailUrl(rawId);
@@ -78,7 +89,7 @@ export default function MapsTab() {
           <h2 className="text-2xl font-bold tracking-tight">Map List</h2>
           <div className="flex gap-2">
             <button
-              onClick={() => setMapSortOrder(prev => prev === 'name' ? 'source' : 'name')}
+              onClick={() => setMapSortOrder((prev) => (prev === 'name' ? 'source' : 'name'))}
               className="px-3 py-1 bg-cs-bg-panel border border-cs-border hover:bg-white/5 rounded text-[10px] font-bold tracking-widest uppercase transition-colors"
               title="Toggle Sort Order"
             >
@@ -126,7 +137,7 @@ export default function MapsTab() {
             />
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 custom-scrollbar">
-            {(['all', 'Defusal', 'Hostage Rescue', 'Arms Race'] as const).map(tag => (
+            {(['all', 'Defusal', 'Hostage Rescue', 'Arms Race'] as const).map((tag) => (
               <button
                 key={tag}
                 onClick={() => setMapTagFilter(tag)}
@@ -148,7 +159,8 @@ export default function MapsTab() {
           <div className="flex flex-col items-center justify-center py-20 opacity-30">
             <Search className="w-12 h-12 mb-4" />
             <p className="text-[10px] font-bold tracking-widest uppercase text-center">
-              No maps matching "{mapSearch}" in {mapTagFilter === 'all' ? 'all categories' : mapTagFilter}
+              No maps matching "{mapSearch}" in{' '}
+              {mapTagFilter === 'all' ? 'all categories' : mapTagFilter}
             </p>
           </div>
         ) : mapViewMode === 'grid' ? (
@@ -186,14 +198,18 @@ export default function MapsTab() {
         {isFetchingMaps && (
           <div className="flex flex-col items-center justify-center py-12 gap-3 opacity-30">
             <Loader2 className="w-8 h-8 animate-spin" />
-            <p className="text-[10px] font-bold tracking-[0.2em] uppercase">Scanning Workshop Repositories...</p>
+            <p className="text-[10px] font-bold tracking-[0.2em] uppercase">
+              Scanning Workshop Repositories...
+            </p>
           </div>
         )}
 
         {!isFetchingMaps && workshopMaps.length === 0 && (
           <div className="flex flex-col gap-4">
             <div className="p-4 bg-cs-bg-panel/50 border border-cs-border border-dashed rounded-lg text-center">
-              <p className="text-[10px] text-cs-muted font-bold tracking-widest uppercase">No Workshop Maps Found on Server</p>
+              <p className="text-[10px] text-cs-muted font-bold tracking-widest uppercase">
+                No Workshop Maps Found on Server
+              </p>
             </div>
 
             <button

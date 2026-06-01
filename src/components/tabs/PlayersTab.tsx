@@ -8,9 +8,7 @@ import { useRconContext } from '../../context/RconContext';
 import { useStatusContext } from '../../context/StatusContext';
 
 export default function PlayersTab() {
-  const {
-    executeAction,
-  } = useRconContext();
+  const { executeAction } = useRconContext();
   const { serverInfo } = useStatusContext();
 
   return (
@@ -27,11 +25,21 @@ export default function PlayersTab() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-cs-bg-main border-b border-cs-border">
-                <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">ID</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">Name</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">Steam ID</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">Ping</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest text-right">Actions</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">
+                  ID
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">
+                  Name
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">
+                  Steam ID
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">
+                  Ping
+                </th>
+                <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest text-right">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-cs-border">
@@ -41,27 +49,29 @@ export default function PlayersTab() {
                   <td className="px-6 py-4 font-bold">{player.name}</td>
                   <td className="px-6 py-4 font-mono text-xs text-cs-muted">{player.steamId}</td>
                   <td className="px-6 py-4">
-                    <span className={`text-xs font-mono ${parseInt(player.ping) < 50 ? 'text-cs-green' : 'text-cs-yellow'}`}>
+                    <span
+                      className={`text-xs font-mono ${parseInt(player.ping) < 50 ? 'text-cs-green' : 'text-cs-yellow'}`}
+                    >
                       {player.ping}ms
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
-                      <button 
+                      <button
                         onClick={() => executeAction('kick', player.userId)}
                         title={`Kick ${player.name} (Slot ${player.userId})`}
                         className="px-3 py-1 bg-cs-yellow/10 hover:bg-cs-yellow text-cs-yellow hover:text-black text-[10px] font-bold rounded transition-all uppercase"
                       >
                         Kick
                       </button>
-                      <button 
+                      <button
                         onClick={() => executeAction('ban', player.steamId, '60')}
                         title={`Ban ${player.name} for 60m`}
                         className="px-3 py-1 bg-cs-red/10 hover:bg-cs-red text-cs-red hover:text-white text-[10px] font-bold rounded transition-all uppercase"
                       >
                         Ban 1h
                       </button>
-                      <button 
+                      <button
                         onClick={() => executeAction('ban', player.steamId, '0')}
                         title={`Permanent Ban ${player.name}`}
                         className="px-3 py-1 bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold rounded transition-all uppercase"

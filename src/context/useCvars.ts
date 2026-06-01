@@ -34,7 +34,7 @@ export function useCvars({ config, addLog, executeAction }: UseCvarsParams) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...sanitized,
-          password: btoa(unescape(encodeURIComponent(config.password)))
+          password: btoa(unescape(encodeURIComponent(config.password))),
         }),
       });
       const data = await res.json();
@@ -52,7 +52,7 @@ export function useCvars({ config, addLog, executeAction }: UseCvarsParams) {
   const updateCvar = async (name: string, value: string) => {
     const success = await executeAction('cvar', value, name);
     if (success) {
-      setCvars(prev => prev.map(c => c.name === name ? { ...c, value } : c));
+      setCvars((prev) => prev.map((c) => (c.name === name ? { ...c, value } : c)));
     }
   };
 
