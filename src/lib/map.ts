@@ -27,7 +27,7 @@ export const getMapMetadata = (id: string) => {
   cleanName = cleanName.replace(/(_de_|_cs_|_cs2_|_ar_)/i, ' ');
 
   // Final polish on name
-  cleanName = cleanName.split(/[_\/]/).map((part: string) => {
+  cleanName = cleanName.split(/[_/]/).map((part: string) => {
     const lower = part.toLowerCase();
     if (lower === 'cs2') return 'CS2';
     if (lower === 'cs') return 'CS';
@@ -38,7 +38,7 @@ export const getMapMetadata = (id: string) => {
 };
 
 export const formatMapLabel = (rawName: string) => {
-  return rawName.split(/[_\/]/).map((part: string) => {
+  return rawName.split(/[_/]/).map((part: string) => {
     const lower = part.toLowerCase();
     if (lower === 'cs2') return 'CS2';
     if (lower === 'cs') return 'CS';

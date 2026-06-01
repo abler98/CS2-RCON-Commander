@@ -332,7 +332,7 @@ async function startServer() {
             const steamId = parts[1]; // often "BOT" or "STEAM_..."
             
             // The name is usually the last part or starts from index 6/7
-            let name = "";
+            let name: string;
             if (trimmed.includes("'")) {
               name = trimmed.split("'")[1] || "";
             } else if (trimmed.includes('"')) {
@@ -368,7 +368,7 @@ async function startServer() {
       if (cleaned.includes('/')) return false;
 
       const lower = cleaned.toLowerCase();
-      if (!/^[a-z0-9_\-]+$/i.test(cleaned)) return false;
+      if (!/^[a-z0-9_-]+$/i.test(cleaned)) return false;
       if (cleaned.length <= 3) return false;
       if (lower.includes('vanity')) return false;
       if (lower.match(/^(map|list|workshop|installed|error|usage|unknown|server|rcon|host|name|status|total)$/i)) return false;
@@ -388,7 +388,7 @@ async function startServer() {
       const trimmed = line.trim();
       if (!trimmed) continue;
 
-      const listLine = trimmed.match(/^(?:\d+[\.\)]\s*)?(?:map\s+list|installed\s+maps)\s*[:\-]?\s*(.+)$/i);
+      const listLine = trimmed.match(/^(?:\d+[.)]\s*)?(?:map\s+list|installed\s+maps)\s*[:-]?\s*(.+)$/i);
       if (listLine && listLine[1]) {
         listLine[1].split(/\s+/).forEach(token => pushMap(token));
         continue;
@@ -415,7 +415,7 @@ async function startServer() {
         continue;
       }
 
-      const match = trimmed.match(/^(?:\d+[\.\)]\s*)?([a-z0-9_\/\-\.]+)(?:\s*[-:]\s*(.+))?$/i);
+      const match = trimmed.match(/^(?:\d+[.)]\s*)?([a-z0-9_/.-]+)(?:\s*[-:]\s*(.+))?$/i);
       if (!match) continue;
 
       const rawName = match[1].replace(/\.(bsp|vpk)$/i, "").trim();
@@ -440,7 +440,7 @@ async function startServer() {
           trimmed.includes("RCON from")) return;
 
       // Pattern 1: [G:1:...] "name" (id)
-      const matchA = trimmed.match(/"([^\"]+)"\s+\((\d+)\)/);
+      const matchA = trimmed.match(/"([^"]+)"\s+\((\d+)\)/);
       if (matchA) {
         maps.push({ name: matchA[1], id: matchA[2], type: 'workshop' });
         return;
@@ -462,7 +462,7 @@ async function startServer() {
 
       // Pattern 4: Simple name (the format in your screenshot)
       // We accept strings that look like map names (alphanumeric, underscores, hyphens)
-      if (trimmed.match(/^[a-zA-Z0-9_\-]+$/)) {
+      if (trimmed.match(/^[a-zA-Z0-9_-]+$/)) {
         maps.push({ name: trimmed, id: trimmed, type: 'workshop' });
       }
     });
@@ -541,7 +541,7 @@ async function startServer() {
             rcon.send("map_fullname")
           ]).catch(() => ["", ""]);
 
-          const hostMapMatch = hostMapRaw.match(/\"host_map\"\s*=\s*\"([^\"]+)\"/i) || hostMapRaw.match(/host_map\s*[:=]\s*([^\s]+)/i);
+          const hostMapMatch = hostMapRaw.match(/"host_map"\s*=\s*"([^"]+)"/i) || hostMapRaw.match(/host_map\s*[:=]\s*([^\s]+)/i);
           if (hostMapMatch) {
             const m = hostMapMatch[1].replace(/\.vpk$/, "").replace(/["']/g, "").trim();
             status.map = m.split("/").pop() || m;
@@ -558,10 +558,10 @@ async function startServer() {
       await rcon.end();
 
       // Extract game type and mode values
-      const gameTypeMatch = gameTypeRaw.match(/\"game_type\"\s*=\s*\"(\d+)\"/i) || 
+      const gameTypeMatch = gameTypeRaw.match(/"game_type"\s*=\s*"(\d+)"/i) ||
                             gameTypeRaw.match(/game_type\s*[:=]\s*(\d+)/i) ||
                             gameTypeRaw.match(/game_type\s+(\d+)/i);
-      const gameModeMatch = gameModeRaw.match(/\"game_mode\"\s*=\s*\"(\d+)\"/i) || 
+      const gameModeMatch = gameModeRaw.match(/"game_mode"\s*=\s*"(\d+)"/i) ||
                             gameModeRaw.match(/game_mode\s*[:=]\s*(\d+)/i) ||
                             gameModeRaw.match(/game_mode\s+(\d+)/i);
       
@@ -581,15 +581,15 @@ async function startServer() {
 
     const decodedPassword = Buffer.from(password, 'base64').toString('utf-8');
 
-    let command = "";
+    let command: string;
     switch (action) {
       case "kick": command = `kickid ${target || value} "Kicked by admin"`; break;
       case "ban": command = `banid ${value} ${target} "Banned by admin"`; break;
       case "map": command = `changelevel ${value || target}`; break;
-      case "gamemode": 
+      case "gamemode": {
         // value expected to be "type mode" e.g. "0 0" for Casual
         // target expected to be the map name
-        
+
         let finalMode = value;
         let finalMap = target || "de_dust2";
 
@@ -605,6 +605,7 @@ async function startServer() {
         // Using 'map' instead of 'changelevel' is often better for mode changes in CS2
         command = `game_type ${gType}; game_mode ${gMode}; map ${finalMap}`;
         break;
+      }
       case "cvar": command = `${target || value} ${value && target ? value : ""}`; break; 
       case "say": command = `say "${value || target}"`; break;
       case "teamname": command = `${target === "ct" ? "mp_teamname_1" : "mp_teamname_2"} "${value}"`; break;
