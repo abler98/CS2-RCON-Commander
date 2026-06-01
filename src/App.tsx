@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, Settings, Server, Users, Map as MapIcon, Zap, Shield, Activity, Info, X, ChevronRight, ChevronDown, Loader2, AlertTriangle, CheckCircle2, LayoutDashboard, Sliders, MessageSquare, Search, ChevronLeft, ChevronRight as ChevronRightIcon, RefreshCw, Palette, Power, ScrollText, Trash2, Pause, Play, Copy, Check } from 'lucide-react';
+import { Terminal, Settings, Server, Users, Map as MapIcon, Zap, Shield, Activity, Info, X, ChevronRight, ChevronDown, Loader2, AlertTriangle, CheckCircle2, LayoutDashboard, Sliders, MessageSquare, Search, ChevronLeft, ChevronRight as ChevronRightIcon, RefreshCw, Palette, Power, PowerOff, ScrollText, Trash2, Pause, Play, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const THEMES = [
@@ -164,6 +164,10 @@ export default function App() {
   const [logsPaused, setLogsPaused] = useState(false);
   const [pausedCount, setPausedCount] = useState(0);
   const [copiedIngest, setCopiedIngest] = useState(false);
+  // Server-side log forwarding (logaddress_*_http) toggle.
+  // null = not yet determined; true/false = forwarding on/off per the server.
+  const [logForwarding, setLogForwarding] = useState<boolean | null>(null);
+  const [logForwardingBusy, setLogForwardingBusy] = useState(false);
   // Max log lines kept in the view/buffer (Infinity = unlimited). logLimitRef
   // mirrors it so the stable SSE handler closure reads the latest value.
   const [logLimit, setLogLimit] = useState(1000);
@@ -335,6 +339,25 @@ export default function App() {
       setSseStatus('idle');
     };
   }, [activeTab, isConnected, logSignature, logServerAddr]);
+
+  // Seed the forwarding toggle when the Logs tab opens on a connected server.
+  useEffect(() => {
+    if (activeTab !== 'logs' || !isConnected || !logSignature) {
+      setLogForwarding(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const response = await runSilentCommand('logaddress_list_http');
+      if (!cancelled) {
+        setLogForwarding(response.includes(logIngestUrl));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isConnected, logSignature]);
 
   // Auto-scroll to the newest log line (same approach as the Console tab).
   useEffect(() => {
@@ -625,6 +648,14 @@ export default function App() {
     }
   };
 
+  // The server.cfg lines that point a CS2 server at this app's ingest endpoint.
+  // Built from the current origin and the HMAC signature for this server.
+  const logIngestUrl = logSignature
+    ? `${window.location.origin}/api/logs/ingest/${logSignature}`
+    : '';
+  const logsIngestCommand = logSignature ? `logaddress_add_http "${logIngestUrl}"` : '';
+  const logsIngestDelCommand = logSignature ? `logaddress_del_http "${logIngestUrl}"` : '';
+
   const executeCommand = async (cmd: string = commandInput) => {
     if (!cmd.trim() || isExecuting) return;
     
@@ -667,6 +698,54 @@ export default function App() {
       addLog('error', 'Console error: ' + err.message);
     } finally {
       setIsExecuting(false);
+    }
+  };
+
+  // Run an RCON command WITHOUT writing to the console history. Returns the raw
+  // server response, or '' on failure. Body mirrors executeCommand exactly.
+  const runSilentCommand = async (cmd: string): Promise<string> => {
+    const sanitized = sanitizeConfig(config);
+    try {
+      const res = await fetch(`${window.location.origin}/api/rcon/command`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...sanitized,
+          password: btoa(unescape(encodeURIComponent(config.password))),
+          command: cmd,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        return data.response ?? '';
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  };
+
+  // Forwarding is ON if our full ingest URL appears in logaddress_list_http output.
+  const checkLogForwarding = async (): Promise<void> => {
+    if (logSignature) {
+      const response = await runSilentCommand('logaddress_list_http');
+      setLogForwarding(response.includes(logIngestUrl));
+    }
+  };
+
+  // Toggle server-side forwarding. Add/del go through executeCommand (so they
+  // show in the Console); the button is disabled while isExecuting so the guard
+  // can't drop them. We re-list afterward to reconcile the true on/off state.
+  const toggleLogForwarding = async (): Promise<void> => {
+    if (logForwardingBusy || isExecuting || !logSignature) {
+      return;
+    }
+    setLogForwardingBusy(true);
+    try {
+      await executeCommand(logForwarding ? logsIngestDelCommand : logsIngestCommand);
+      await checkLogForwarding();
+    } finally {
+      setLogForwardingBusy(false);
     }
   };
 
@@ -810,12 +889,6 @@ export default function App() {
       logBufferRef.current.splice(0, logBufferRef.current.length - limit);
     }
   };
-
-  // The server.cfg line that points a CS2 server at this app's ingest endpoint.
-  // Built from the current origin and the HMAC signature for this server.
-  const logsIngestCommand = logSignature
-    ? `logaddress_add_http "${window.location.origin}/api/logs/ingest/${logSignature}"`
-    : '';
 
   const copyIngestCommand = () => {
     navigator.clipboard?.writeText(logsIngestCommand)
@@ -1794,6 +1867,31 @@ export default function App() {
                       {logsPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
                       {logsPaused ? `Resume${pausedCount > 0 ? ` (${pausedCount})` : ''}` : 'Pause'}
                     </button>
+                    {isConnected && logSignature && (
+                      <button
+                        onClick={toggleLogForwarding}
+                        disabled={logForwardingBusy || isExecuting}
+                        title={
+                          logForwarding
+                            ? 'Stop the server forwarding logs here (logaddress_del_http)'
+                            : 'Forward this server\'s logs here (logaddress_add_http)'
+                        }
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-widest uppercase border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                          logForwarding
+                            ? 'border-cs-green/30 bg-cs-green/10 text-cs-green'
+                            : 'border-cs-border bg-cs-bg-main text-cs-muted hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {logForwardingBusy ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : logForwarding ? (
+                          <Power className="w-3 h-3" />
+                        ) : (
+                          <PowerOff className="w-3 h-3" />
+                        )}
+                        {logForwarding ? 'Forwarding' : 'Forward Logs'}
+                      </button>
+                    )}
                     <button
                       onClick={clearLogs}
                       title="Clear logs"
