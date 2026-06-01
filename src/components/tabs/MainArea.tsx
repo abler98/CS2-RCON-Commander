@@ -65,7 +65,7 @@ export default function MainArea() {
           <Route
             path="/players"
             element={
-              <TabPanel className="flex-1 p-8 flex flex-col">
+              <TabPanel className="flex-1 p-8 flex flex-col overflow-hidden">
                 <PlayersTab />
               </TabPanel>
             }
