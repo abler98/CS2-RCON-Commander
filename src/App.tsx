@@ -9,7 +9,7 @@ import { RconProvider } from './context/RconContext';
 import { StatusProvider } from './context/StatusContext';
 import { CvarsProvider } from './context/CvarsContext';
 import { MapsProvider } from './context/MapsContext';
-import { ActiveTabProvider } from './context/ActiveTabContext';
+import { HashRouter } from 'react-router-dom';
 import AppLayout from './components/AppLayout';
 
 export default function App() {
@@ -20,9 +20,9 @@ export default function App() {
           <StatusProvider>
             <CvarsProvider>
               <MapsProvider>
-                <ActiveTabProvider>
+                <HashRouter>
                   <AppLayout />
-                </ActiveTabProvider>
+                </HashRouter>
               </MapsProvider>
             </CvarsProvider>
           </StatusProvider>

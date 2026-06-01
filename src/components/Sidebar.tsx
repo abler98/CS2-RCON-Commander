@@ -15,7 +15,7 @@ import {
   ChevronLeft,
   ScrollText,
 } from 'lucide-react';
-import { useActiveTab } from '../context/ActiveTabContext';
+import { NavLink } from 'react-router-dom';
 
 export default function Sidebar() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -25,8 +25,6 @@ export default function Sidebar() {
   useEffect(() => {
     localStorage.setItem('cs2_sidebar_collapsed', isSidebarCollapsed.toString());
   }, [isSidebarCollapsed]);
-
-  const { activeTab, setActiveTab } = useActiveTab();
 
   return (
     <aside
@@ -59,14 +57,16 @@ export default function Sidebar() {
           { id: 'actions', icon: Sliders, label: 'Actions' },
           { id: 'cvars', icon: Activity, label: 'Variables' },
         ].map((item) => (
-          <button
+          <NavLink
             key={item.id}
-            onClick={() => setActiveTab(item.id as any)}
-            className={`flex items-center p-2 rounded-lg transition-colors cursor-pointer group relative ${
-              activeTab === item.id
-                ? 'bg-cs-border text-cs-yellow'
-                : 'text-cs-muted hover:bg-white/5 hover:text-white'
-            } ${isSidebarCollapsed ? 'justify-center' : 'gap-3 px-4'}`}
+            to={`/${item.id}`}
+            className={({ isActive }) =>
+              `flex items-center p-2 rounded-lg transition-colors cursor-pointer group relative ${
+                isActive
+                  ? 'bg-cs-border text-cs-yellow'
+                  : 'text-cs-muted hover:bg-white/5 hover:text-white'
+              } ${isSidebarCollapsed ? 'justify-center' : 'gap-3 px-4'}`
+            }
             title={isSidebarCollapsed ? item.label : undefined}
           >
             <item.icon className="w-5 h-5 shrink-0" />
@@ -80,7 +80,7 @@ export default function Sidebar() {
                 {item.label}
               </div>
             )}
-          </button>
+          </NavLink>
         ))}
       </div>
 
