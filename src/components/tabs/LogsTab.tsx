@@ -188,33 +188,65 @@ export default function LogsTab() {
           </div>
         ) : logs.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-cs-muted gap-5 px-6">
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="w-5 h-5 animate-spin opacity-40" />
-              <p className="text-xs tracking-wide">Waiting for incoming logs…</p>
-            </div>
-            <div className="max-w-2xl w-full bg-cs-bg-panel border border-cs-border rounded-lg p-4 text-left">
-              <p className="text-[11px] text-cs-muted/80 leading-relaxed mb-3">
-                Add this to your <span className="font-bold text-cs-text/80">server.cfg</span> (or
-                run it in the console) to forward logs here via the{' '}
-                <span className="font-bold text-cs-text/80">logaddress_add_http</span> option:
-              </p>
-              <div className="flex items-stretch gap-2">
-                <code className="flex-1 bg-black/30 border border-cs-border rounded px-3 py-2 text-[11px] text-cs-text/90 font-mono break-all select-all">
-                  {logsIngestCommand}
-                </code>
+            {logForwarding === false ? (
+              <>
+                <div className="flex flex-col items-center gap-1.5 text-center">
+                  <PowerOff className="w-7 h-7 opacity-30" />
+                  <p className="text-xs tracking-wide font-bold text-cs-text/80">
+                    Log forwarding is off
+                  </p>
+                  <p className="text-[11px] text-cs-muted/70">
+                    Enable it to start streaming this server&apos;s logs here.
+                  </p>
+                </div>
                 <button
-                  onClick={copyIngestCommand}
-                  title="Copy to clipboard"
-                  className="shrink-0 flex items-center justify-center px-3 rounded border border-cs-border text-cs-muted hover:text-white hover:bg-white/5 transition-colors"
+                  onClick={toggleLogForwarding}
+                  disabled={logForwardingBusy || isExecuting}
+                  title="Forward this server's logs here (logaddress_add_http)"
+                  className="flex items-center gap-2 bg-cs-green text-black px-4 py-2 rounded text-[11px] font-bold uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {copiedIngest ? (
-                    <Check className="w-3.5 h-3.5 text-cs-green" />
+                  {logForwardingBusy ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Copy className="w-3.5 h-3.5" />
+                    <Power className="w-3.5 h-3.5" />
                   )}
+                  Enable Log Forwarding
                 </button>
+                <div className="flex items-center gap-3 w-full max-w-2xl text-[10px] text-cs-muted/50 uppercase tracking-widest">
+                  <span className="flex-1 h-px bg-cs-border"></span>
+                  OR
+                  <span className="flex-1 h-px bg-cs-border"></span>
+                </div>
+                <div className="max-w-2xl w-full bg-cs-bg-panel border border-cs-border rounded-lg p-4 text-left">
+                  <p className="text-[11px] text-cs-muted/80 leading-relaxed mb-3">
+                    Add this to your <span className="font-bold text-cs-text/80">server.cfg</span>{' '}
+                    (or run it in the console) to forward logs here via the{' '}
+                    <span className="font-bold text-cs-text/80">logaddress_add_http</span> option:
+                  </p>
+                  <div className="flex items-stretch gap-2">
+                    <code className="flex-1 bg-black/30 border border-cs-border rounded px-3 py-2 text-[11px] text-cs-text/90 font-mono break-all select-all">
+                      {logsIngestCommand}
+                    </code>
+                    <button
+                      onClick={copyIngestCommand}
+                      title="Copy to clipboard"
+                      className="shrink-0 flex items-center justify-center px-3 rounded border border-cs-border text-cs-muted hover:text-white hover:bg-white/5 transition-colors"
+                    >
+                      {copiedIngest ? (
+                        <Check className="w-3.5 h-3.5 text-cs-green" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin opacity-40" />
+                <p className="text-xs tracking-wide">Waiting for incoming logs…</p>
               </div>
-            </div>
+            )}
           </div>
         ) : (
           <div className="space-y-0.5">
