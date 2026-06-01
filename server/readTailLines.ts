@@ -3,8 +3,9 @@ import type { IncomingMessage } from 'node:http';
 
 // Streams the request body and returns only the last `maxLines` non-empty
 // lines (tail semantics), so memory stays bounded regardless of body size.
-// CS2 can push a large burst when log forwarding is enabled mid-game; the ring
-// buffer only keeps LOG_MAX_LINES_PER_SERVER anyway, so reading more is waste.
+// CS2 can push a large burst when log forwarding is enabled mid-game; only the
+// last LOG_MAX_LINES_PER_SERVER are forwarded to viewers anyway, so reading more
+// is waste.
 //
 // Uses StringDecoder (not naive chunk.toString()) so a multibyte UTF-8 char
 // split across a chunk boundary is decoded correctly. Always drains the stream

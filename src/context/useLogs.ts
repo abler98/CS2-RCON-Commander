@@ -68,8 +68,10 @@ export function useLogs({
 
   // Open an SSE log stream while the Logs tab is mounted and a token is available.
   // (The hook only lives while LogsTab is mounted, i.e. the Logs tab is active.)
-  // EventSource auto-reconnects on transient errors and replays via Last-Event-ID,
-  // so the server only sends entries we haven't seen.
+  // The server is a pure live tail: it keeps no history, so we only ever see
+  // lines that arrive while connected. EventSource auto-reconnects on transient
+  // errors and resumes live (any lines sent during the gap are missed); we still
+  // de-dupe by timestamp+id since a reconnect can re-deliver the in-flight frame.
   useEffect(() => {
     if (!isConnected || !logSignature || !logServerAddr) {
       return;
@@ -84,7 +86,7 @@ export function useLogs({
     lastLogIdRef.current = 0;
     setSseStatus('connecting');
 
-    const url = `${window.location.origin}/api/logs/stream/${encodeURIComponent(logServerAddr)}?token=${logSignature}&n=200`;
+    const url = `${window.location.origin}/api/logs/stream/${encodeURIComponent(logServerAddr)}?token=${logSignature}`;
     const es = new EventSource(url);
     esRef.current = es;
 

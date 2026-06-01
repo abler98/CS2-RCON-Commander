@@ -13,7 +13,7 @@ import { readTailLines } from './server/readTailLines';
 // that address, so a token only grants access to one specific server's logs.
 
 interface LogEntry {
-  id: number; // monotonic per-server sequence id (Last-Event-ID target)
+  id: number; // monotonic per-server sequence id; SSE event id + client dedupe tiebreaker
   ts: number; // Date.now() at ingest
   line: string; // raw log line, without trailing newline
 }
@@ -24,7 +24,6 @@ interface Subscriber {
 }
 
 interface ServerLogStore {
-  buffer: LogEntry[]; // ring buffer, capped at LOG_MAX_LINES_PER_SERVER
   nextId: number; // never reset on eviction, so SSE ids stay monotonic
   subscribers: Set<Subscriber>; // SSE clients tailing this server
   lastSeen: number; // Date.now() of last ingest (for LRU server eviction)
@@ -82,7 +81,7 @@ function getOrCreateStore(addr: string): ServerLogStore {
     }
   }
 
-  store = { buffer: [], nextId: 1, subscribers: new Set(), lastSeen: Date.now() };
+  store = { nextId: 1, subscribers: new Set(), lastSeen: Date.now() };
   logStores.set(addr, store);
   return store;
 }
@@ -91,28 +90,21 @@ function sseFrame(entry: LogEntry): string {
   return `id: ${entry.id}\nevent: log\ndata: ${JSON.stringify(entry)}\n\n`;
 }
 
-// Append new lines to a store's ring buffer and broadcast them to subscribers.
-function appendAndBroadcast(store: ServerLogStore, lines: string[]): void {
+// Tag new lines with monotonic ids and broadcast them live to subscribers.
+// Nothing is retained server-side: clients only receive lines that arrive while
+// they're connected (each keeps its own in-view history and de-dupes them).
+function broadcast(store: ServerLogStore, lines: string[]): void {
   if (lines.length === 0) {
     return;
   }
 
   const now = Date.now();
-  const newEntries: LogEntry[] = [];
-  for (const line of lines) {
-    const entry: LogEntry = { id: store.nextId++, ts: now, line };
-    store.buffer.push(entry);
-    newEntries.push(entry);
-  }
-
-  if (store.buffer.length > LOG_MAX_LINES_PER_SERVER) {
-    store.buffer.splice(0, store.buffer.length - LOG_MAX_LINES_PER_SERVER);
-  }
-
+  // One `now` per batch; the id breaks ties between same-timestamp entries.
+  const entries: LogEntry[] = lines.map((line) => ({ id: store.nextId++, ts: now, line }));
   store.lastSeen = now;
 
   for (const sub of store.subscribers) {
-    for (const entry of newEntries) {
+    for (const entry of entries) {
       try {
         sub.res.write(sseFrame(entry));
       } catch {
@@ -824,12 +816,10 @@ async function startServer() {
     }
 
     const store = getOrCreateStore(serverAddr);
-    appendAndBroadcast(store, lines);
+    broadcast(store, lines);
 
     if (process.env.DEBUG === 'true') {
-      console.log(
-        `[logs] +${lines.length} from ${serverAddr} (buf=${store.buffer.length}, subs=${store.subscribers.size})`,
-      );
+      console.log(`[logs] +${lines.length} from ${serverAddr} (subs=${store.subscribers.size})`);
     }
 
     // Respond fast; CS2 ignores the body.
@@ -837,7 +827,8 @@ async function startServer() {
   });
 
   // Endpoint B: tail a server's logs via SSE. HMAC-protected via ?token=.
-  // `?n=` backfills the last N lines, then new lines stream in real time.
+  // Pure live tail: no history is kept, so a client only receives lines that
+  // arrive after it connects (and reconnects simply resume live).
   app.get('/api/logs/stream/:addr', (req, res) => {
     if (!LOG_INGEST_SECRET) {
       return res.status(503).json({ error: 'Log streaming disabled (LOG_INGEST_SECRET not set)' });
@@ -848,11 +839,6 @@ async function startServer() {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    const requestedN = Number(req.query.n);
-    const n = Number.isFinite(requestedN)
-      ? Math.max(0, Math.min(requestedN, LOG_MAX_LINES_PER_SERVER))
-      : 200;
-
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -861,24 +847,6 @@ async function startServer() {
     res.flushHeaders?.();
 
     const store = getOrCreateStore(addr);
-
-    // Backfill: on reconnect replay entries after Last-Event-ID, else the last N
-    // lines. The incremental replay only applies when the cursor falls inside the
-    // current buffer's id range. If it's beyond the newest id, the client's cursor
-    // is stale (e.g. the server restarted and ids reset) — fall back to the last N
-    // so the client recovers; it de-dupes by timestamp+id on its end.
-    const lastEventId = Number(req.headers['last-event-id']);
-    const oldestId = store.buffer.length > 0 ? store.buffer[0].id : 0;
-    const newestId = store.buffer.length > 0 ? store.buffer[store.buffer.length - 1].id : 0;
-    let backfill: LogEntry[];
-    if (Number.isFinite(lastEventId) && lastEventId >= oldestId - 1 && lastEventId < newestId) {
-      backfill = store.buffer.filter((entry) => entry.id > lastEventId);
-    } else {
-      backfill = n > 0 ? store.buffer.slice(-n) : [];
-    }
-    for (const entry of backfill) {
-      res.write(sseFrame(entry));
-    }
 
     const heartbeat = setInterval(() => {
       try {
