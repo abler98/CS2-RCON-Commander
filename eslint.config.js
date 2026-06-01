@@ -48,7 +48,7 @@ export default tseslint.config(
 
   // Node-side code (server, build tooling, configs)
   {
-    files: ['server.ts', '*.config.{ts,js}'],
+    files: ['*.ts', 'server/**/*.ts', '*.config.{ts,js}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,

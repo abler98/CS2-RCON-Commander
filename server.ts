@@ -5,6 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { Rcon } from 'rcon-client';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { readTailLines } from './server/readTailLines';
 
 // --- CS2 HTTP log ingestion (logaddress_add_http) ---------------------------
 // Logs are pushed by CS2 game servers and grouped in memory per server address
@@ -796,41 +797,44 @@ async function startServer() {
   // Endpoint A: receive logs pushed by CS2 via `logaddress_add_http`.
   // The token (path segment) must equal HMAC-SHA256(secret, x-server-addr).
   // Route-level text parser so the existing express.json() routes are untouched.
-  app.post(
-    '/api/logs/ingest/:token',
-    express.text({ type: () => true, limit: '256kb' }),
-    (req, res) => {
-      if (!LOG_INGEST_SECRET) {
-        return res
-          .status(503)
-          .json({ error: 'Log ingestion disabled (LOG_INGEST_SECRET not set)' });
-      }
+  app.post('/api/logs/ingest/:token', async (req, res) => {
+    if (!LOG_INGEST_SECRET) {
+      req.resume();
+      return res.status(503).json({ error: 'Log ingestion disabled (LOG_INGEST_SECRET not set)' });
+    }
 
-      const serverAddr = String(req.headers['x-server-addr'] || '').trim();
-      if (!serverAddr) {
-        return res.status(400).json({ error: 'Missing x-server-addr header' });
-      }
+    const serverAddr = String(req.headers['x-server-addr'] || '').trim();
+    if (!serverAddr) {
+      req.resume();
+      return res.status(400).json({ error: 'Missing x-server-addr header' });
+    }
 
-      if (!verifyToken(serverAddr, req.params.token)) {
-        return res.status(401).json({ error: 'Invalid token' });
-      }
+    if (!verifyToken(serverAddr, req.params.token)) {
+      req.resume();
+      return res.status(401).json({ error: 'Invalid token' });
+    }
 
-      const body = typeof req.body === 'string' ? req.body : '';
-      const lines = body.split(/\r?\n/).filter((line) => line.length > 0);
+    let lines: string[];
+    try {
+      lines = await readTailLines(req, LOG_MAX_LINES_PER_SERVER, 1024);
+    } catch {
+      // Stream already drained inside readTailLines. Ingestion is best-effort
+      // and CS2 ignores the body, so 200 avoids retry storms.
+      return res.status(200).end();
+    }
 
-      const store = getOrCreateStore(serverAddr);
-      appendAndBroadcast(store, lines);
+    const store = getOrCreateStore(serverAddr);
+    appendAndBroadcast(store, lines);
 
-      if (process.env.DEBUG === 'true') {
-        console.log(
-          `[logs] +${lines.length} from ${serverAddr} (buf=${store.buffer.length}, subs=${store.subscribers.size})`,
-        );
-      }
+    if (process.env.DEBUG === 'true') {
+      console.log(
+        `[logs] +${lines.length} from ${serverAddr} (buf=${store.buffer.length}, subs=${store.subscribers.size})`,
+      );
+    }
 
-      // Respond fast; CS2 ignores the body.
-      res.status(200).end();
-    },
-  );
+    // Respond fast; CS2 ignores the body.
+    res.status(200).end();
+  });
 
   // Endpoint B: tail a server's logs via SSE. HMAC-protected via ?token=.
   // `?n=` backfills the last N lines, then new lines stream in real time.
