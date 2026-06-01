@@ -6,6 +6,7 @@
 import { Users } from 'lucide-react';
 import { useRconContext } from '../../context/RconContext';
 import { useStatusContext } from '../../context/StatusContext';
+import type { Player } from '../../types/server';
 
 export default function PlayersTab() {
   const { executeAction } = useRconContext();
@@ -33,7 +34,10 @@ export default function PlayersTab() {
                     Name
                   </th>
                   <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">
-                    Steam ID
+                    IP Address
+                  </th>
+                  <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">
+                    Time
                   </th>
                   <th className="px-6 py-4 text-[10px] font-bold text-cs-muted tracking-widest">
                     Ping
@@ -44,17 +48,39 @@ export default function PlayersTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cs-border">
-                {serverInfo.playerList.map((player: any) => (
+                {serverInfo.playerList.map((player: Player) => (
                   <tr key={player.userId} className="hover:bg-white/5 transition-colors group">
                     <td className="px-6 py-4 font-mono text-xs text-cs-muted">{player.userId}</td>
-                    <td className="px-6 py-4 font-bold">{player.name}</td>
-                    <td className="px-6 py-4 font-mono text-xs text-cs-muted">{player.steamId}</td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`text-xs font-mono ${parseInt(player.ping) < 50 ? 'text-cs-green' : 'text-cs-yellow'}`}
-                      >
-                        {player.ping}ms
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">{player.name || 'Unknown'}</span>
+                        {player.isBot ? (
+                          <span className="text-[8px] px-1.5 py-0.5 bg-cs-yellow/10 border border-cs-yellow/20 text-cs-yellow font-bold rounded uppercase tracking-wider">
+                            Bot
+                          </span>
+                        ) : (
+                          <span className="text-[8px] px-1.5 py-0.5 bg-cs-green/10 border border-cs-green/20 text-cs-green font-bold rounded uppercase tracking-wider">
+                            Player
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-mono text-xs text-cs-muted">
+                      {player.address || '—'}
+                    </td>
+                    <td className="px-6 py-4 font-mono text-xs text-cs-muted">
+                      {player.time || '—'}
+                    </td>
+                    <td className="px-6 py-4">
+                      {player.isBot ? (
+                        <span className="text-xs font-mono text-cs-muted">—</span>
+                      ) : (
+                        <span
+                          className={`text-xs font-mono ${parseInt(player.ping) < 50 ? 'text-cs-green' : 'text-cs-yellow'}`}
+                        >
+                          {player.ping}ms
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
@@ -65,20 +91,24 @@ export default function PlayersTab() {
                         >
                           Kick
                         </button>
-                        <button
-                          onClick={() => executeAction('ban', player.steamId, '60')}
-                          title={`Ban ${player.name} for 60m`}
-                          className="px-3 py-1 bg-cs-red/10 hover:bg-cs-red text-cs-red hover:text-white text-[10px] font-bold rounded transition-all uppercase"
-                        >
-                          Ban 1h
-                        </button>
-                        <button
-                          onClick={() => executeAction('ban', player.steamId, '0')}
-                          title={`Permanent Ban ${player.name}`}
-                          className="px-3 py-1 bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold rounded transition-all uppercase"
-                        >
-                          Forever
-                        </button>
+                        {!player.isBot ? (
+                          <>
+                            <button
+                              onClick={() => executeAction('ban', '60', player.userId)}
+                              title={`Ban ${player.name} for 60m`}
+                              className="px-3 py-1 bg-cs-red/10 hover:bg-cs-red text-cs-red hover:text-white text-[10px] font-bold rounded transition-all uppercase"
+                            >
+                              Ban 1h
+                            </button>
+                            <button
+                              onClick={() => executeAction('ban', '0', player.userId)}
+                              title={`Permanent Ban ${player.name}`}
+                              className="px-3 py-1 bg-red-600/10 hover:bg-red-600 text-red-600 hover:text-white text-[10px] font-bold rounded transition-all uppercase"
+                            >
+                              Forever
+                            </button>
+                          </>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

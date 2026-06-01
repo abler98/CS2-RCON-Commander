@@ -333,45 +333,52 @@ async function startServer() {
       }
 
       if (playerSectionStarted && trimmed.length > 5) {
-        // Format A: # 2 "Player Name" STEAM_1:1...
-        if (trimmed.startsWith('#') && !trimmed.startsWith('#end')) {
-          const parts = trimmed.split(/\s+/).filter(Boolean);
-          if (parts.length >= 8) {
-            const userId = parts[1];
-            const steamId = parts[parts.length - 6];
-            const ping = parts[parts.length - 4];
-            const name = parts
-              .slice(2, parts.length - 6)
-              .join(' ')
-              .replace(/"/g, '');
-            status.playerList.push({ userId, name, steamId, ping, isBot: steamId.includes('BOT') });
+        //   Columns: id  time  ping  loss  state  rate  adr  name
+        //   - Human row: all 8 columns (adr = ip:port).
+        //   - BOT row:   no adr column; the "time" slot literally reads "BOT".
+        //   - Connecting stub: "65535 [NoChan] ... challenging ... 0unknown ''" (skip).
+        if (!trimmed.startsWith('id ') && !trimmed.startsWith('#')) {
+          // The name lives inside single or double quotes; everything before the
+          // first quote is the fixed-position column prefix.
+          let name = '';
+          let prefix = trimmed;
+          const quoteIdx = trimmed.search(/['"]/);
+          if (quoteIdx !== -1) {
+            const quoteChar = trimmed[quoteIdx];
+            prefix = trimmed.slice(0, quoteIdx);
+            const rest = trimmed.slice(quoteIdx + 1);
+            const closeIdx = rest.indexOf(quoteChar);
+            name = closeIdx !== -1 ? rest.slice(0, closeIdx) : rest;
           }
-        }
-        // Format B: 0 BOT 0 0 active 0 'Farlow'
-        else if (!trimmed.startsWith('id ') && !trimmed.startsWith('#')) {
-          const parts = trimmed.split(/\s+/).filter(Boolean);
-          if (parts.length >= 5) {
-            const userId = parts[0];
-            const ping = parts[2];
-            const steamId = parts[1]; // often "BOT" or "STEAM_..."
 
-            // The name is usually the last part or starts from index 6/7
-            let name: string;
-            if (trimmed.includes("'")) {
-              name = trimmed.split("'")[1] || '';
-            } else if (trimmed.includes('"')) {
-              name = trimmed.split('"')[1] || '';
-            } else {
-              name = parts[parts.length - 1];
+          const t = prefix.split(/\s+/).filter(Boolean);
+          if (t.length >= 5) {
+            const userId = t[0];
+            const ping = t[2];
+            const state = t[4];
+            const isBot = t[1] === 'BOT';
+            // For bots the "time" slot literally reads "BOT", not a play time.
+            const time = isBot ? '' : t[1];
+
+            // adr (t[6]) only exists for humans; accept it only if it is ip:port.
+            let address = '';
+            if (t[6] && /^\d{1,3}(\.\d{1,3}){3}:\d+$/.test(t[6])) {
+              address = t[6];
             }
 
-            status.playerList.push({
-              userId,
-              name: name.trim(),
-              steamId,
-              ping,
-              isBot: steamId === 'BOT' || steamId.includes('BOT'),
-            });
+            // Skip connecting/disconnected stub rows that carry no real data.
+            const isStub = userId === '65535' || state === 'challenging';
+            if (!isStub) {
+              status.playerList.push({
+                userId,
+                name: name.trim(),
+                ping,
+                time,
+                address,
+                state,
+                isBot,
+              });
+            }
           }
         }
       }

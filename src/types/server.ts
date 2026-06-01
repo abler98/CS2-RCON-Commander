@@ -8,3 +8,13 @@ export interface ServerDetails {
   port: string;
   password: string;
 }
+
+export interface Player {
+  userId: string;
+  name: string;
+  ping: string;
+  time: string;
+  address: string;
+  state: string;
+  isBot: boolean;
+}
